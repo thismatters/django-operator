@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    role: worker
+    version: "{version}"
+  name: "worker-{version}"
+spec:
+  replicas: {app_replicas}
+  selector:
+    matchLabels:
+      role: worker
+  strategy: {{}}
+  template:
+    metadata:
+      labels:
+        role: worker
+    spec:
+      initContainers:
+      - name: init-broker
+        image: busybox:1.28.4
+        command: ["sh", "-c", "until nslookup redis; do sleep 3; done;"]
+      imagePullSecrets: {{}}
+      volumes: {{}}
+      containers:
+      - name: worker
+        image: "{image}"
+        command:
+        envFrom: {{}}
+        env:
+          CONTAINER_PURPOSE: "{purpose}"
+        volumeMounts: {{}}
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "700Mi"

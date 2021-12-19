@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    role: beat
+    version: "{version}"
+  name: "beat-{version}"
+spec:
+  replicas: {app_replicas}
+  selector:
+    matchLabels:
+      role: beat
+  strategy: {{}}
+  template:
+    metadata:
+      labels:
+        role: beat
+    spec:
+      initContainers:
+      - name: init-broker
+        image: busybox:1.28.4
+        command: ["sh", "-c", "until nslookup redis; do sleep 3; done;"]
+      imagePullSecrets: {{}}
+      volumes: {{}}
+      containers:
+      - name: beat
+        image: "{image}"
+        envFrom: {{}}
+        env:
+          CONTAINER_PURPOSE: "{purpose}"
+        volumeMounts: {{}}
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "700Mi"

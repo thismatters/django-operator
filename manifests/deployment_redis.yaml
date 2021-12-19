@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    role: redis
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      role: redis
+  strategy: {{}}
+  template:
+    metadata:
+      labels:
+        role: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:4.0
+        ports:
+        - containerPort: {redis_port}
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "10Mi"

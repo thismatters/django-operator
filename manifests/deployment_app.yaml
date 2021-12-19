@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    role: app
+    version: "{version}"
+  name: "app-{version}"
+spec:
+  replicas: {app_replicas}
+  selector:
+    matchLabels:
+      role: app
+  strategy: {{}}
+  template:
+    metadata:
+      labels:
+        role: app
+    spec:
+      imagePullSecrets: {{}}
+      volumes: {{}}
+      containers:
+      - name: app
+        image: "{image}"
+        envFrom: {{}}
+        env:
+          CONTAINER_PURPOSE: "{purpose}"
+        volumeMounts: {{}}
+        ports:
+        - containerPort: {app_port}
+        livenessProbe: {{}}
+        readinessProbe: {{}}
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "700Mi"

@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "migrations-{version}"
+spec:
+  template:
+    metadata:
+      name: "migrations-{version}"
+    spec:
+      initContainers: []
+      containers:
+      - name: finishing
+        image: busybox
+        command: ["sleep", "1"]
+      restartPolicy: Never
