@@ -66,7 +66,8 @@ spec:
   * [x] service -- redis
   * [x] service -- app
   * [x] job -- migrations
-* [] write the code
+* [x] write create/update the code
+* [] write delete code (shouldn't be much here really...)
 * [] set up CI pipeline
 * [] lint
 * [] deploy to cluster (for testing)

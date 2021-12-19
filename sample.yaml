@@ -1,5 +1,5 @@
 ---
-apiVersion: blindage.org/v2
+apiVersion: thismatters.github/v1alpha
 kind: Django
 metadata:
   name: my-project
@@ -20,22 +20,27 @@ spec:
     app: 8000
     redis: 6379
   # set some ENVs
-  envs:
-    # envs have to be formatted prior to injection
-    CONTAINER_PURPOSE: "{purpose}"
-  # get some ENVs from predefined secret resource
-  envsSecrets:
-  - aws
-  - crypto
-  - database
-  - email
-  - google-auth
-  - paysimple
-  - plaid
-  - secret-key
-  # or you can mount ENVs from configmap
-  envsConfigmaps:
-  - env
+  env: {}
+  # get some ENVs from predefined secrets/configmaps
+  envFrom:
+  - configMapRef:
+      name: env
+  - secretRef:
+      name: aws
+  - secretRef:
+      name: crypto
+  - secretRef:
+      name: database
+  - secretRef:
+      name: email
+  - secretRef:
+      name: google-auth
+  - secretRef:
+      name: paysimple
+  - secretRef:
+      name: plaid
+  - secretRef:
+      name: secret-key
   imagePullSecrets:
   - name: gitlab-registry-read
   volumes:
@@ -77,7 +82,7 @@ spec:
     failureThreshold: 3
 status:
   version: "2021.12.1"
-  condition: "starting | migrating | running | degraded"
+  condition: "migrating | running | degraded"
   migrationVersion: "2021.12.1"
   replicas:
     app: 3

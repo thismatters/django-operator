@@ -284,8 +284,8 @@ class DjangoKind:
             )
         return ret
 
-    async def ensure_green_app(self, *, spec, status, base_kwargs):
-        app_enrichments = {
+    def _base_enrichments(self, *, spec, purpose):
+        return {
             "spec": {
                 "strategy": spec.get("strategy", {}),
                 "template": {
@@ -295,19 +295,25 @@ class DjangoKind:
                         ("containers", 0): {
                             "command": superget(
                                 spec,
-                                "commands.app.command",
-                                _raise=kopf.PermanentError("missing app command"),
+                                f"commands.{purpose}.command",
+                                _raise=kopf.PermanentError(f"missing {purpose} command"),
                             ),
-                            "args": superget(spec, "commands.app.args", []),
+                            "args": superget(spec, f"commands.{purpose}.args", []),
+                            "env": spec.get("env", {}),
                             "envFrom": spec.get("envFrom", {}),
                             "volumeMounts": spec.get("volumeMounts", {}),
-                            "livenessProbe": spec.get("appProbeSpec", {}),
-                            "readinessProbe": spec.get("appProbeSpec", {}),
-                        },
+                        }
                     }
-                },
+                }
             }
         }
+
+    async def ensure_green_app(self, *, spec, status, base_kwargs):
+        enrichments = self._base_enrichments(spec=spec, purpose="app")
+        enrichments["spec"]["template"]["spec"][("containers", 0)].update({
+            "livenessProbe": spec.get("appProbeSpec", {}),
+            "readinessProbe": spec.get("appProbeSpec", {}),
+        })
         ret = self._migrate_deployment(
             purpose="app",
             status=status,
@@ -342,62 +348,19 @@ class DjangoKind:
 
     def ensure_worker(self, *, spec, status, base_kwargs):
         # worker data gathering
-        worker_enrichments = {
-            "spec": {
-                "strategy": spec.get("strategy", {}),
-                "template": {
-                    "spec": {
-                        "imagePullSecrets": spec.get("imagePullSecrets", {}),
-                        "volumes": spec.get("volumes", {}),
-                        ("containers", 0): {
-                            "command": superget(
-                                spec,
-                                "commands.worker.command",
-                                _raise=kopf.PermanentError("missing worker command"),
-                            ),
-                            "args": superget(spec, "commands.worker.args", []),
-                            "envFrom": spec.get("envFrom", {}),
-                            "volumeMounts": spec.get("volumeMounts", {}),
-                        },
-                    }
-                },
-            }
-        }
         return self._migrate_deployment(
             purpose="worker",
             status=status,
-            enrichments=enrichments,
+            enrichments=self._base_enrichments(spec=spec, purpose="worker"),
             base_kwargs=base_kwargs,
         )
 
     def ensure_beat(self, *, spec, status, base_kwargs):
         # beat data gathering
-        enrichments = {
-            "spec": {
-                "strategy": spec.get("strategy", {}),
-                "template": {
-                    "spec": {
-                        "imagePullSecrets": spec.get("imagePullSecrets", {}),
-                        "volumes": spec.get("volumes", {}),
-                        ("containers", 0): {
-                            "command": superget(
-                                spec,
-                                "commands.beat.command",
-                                _raise=kopf.PermanentError("missing beat command"),
-                            ),
-                            "args": superget(spec, "commands.beat.args", []),
-                            "envFrom": spec.get("envFrom", {}),
-                            "volumeMounts": spec.get("volumeMounts", {}),
-                        },
-                    }
-                },
-            }
-        }
-
         return self._migrate_deployment(
             purpose="beat",
             status=status,
-            enrichments=enrichments,
+            enrichments=self._base_enrichments(spec=spec, purpose="beat"),,
             base_kwargs=base_kwargs,
         )
 
@@ -521,8 +484,8 @@ class DjangoKind:
         return ret
 
 
-@kopf.on.update("thismatters.net", "v1alpha", "django")
-@kopf.on.create("thismatters.net", "v1alpha", "django")
+@kopf.on.update("thismatters.github", "v1alpha", "django")
+@kopf.on.create("thismatters.github", "v1alpha", "django")
 def created(**kwargs):
     return DjangoKind().update_or_create(**kwargs)
 
