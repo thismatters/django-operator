@@ -1,3 +1,7 @@
+class WaitedTooLongException(Exception):
+    pass
+
+
 def superget(dct, superkey, *, default=None, _raise=None):
     key, remainder = superkey.rsplit(".", maxsplit=1)
     if key not in dct:
@@ -67,5 +71,12 @@ class MergeDict(dict):
 if __name__ == "__main__":
     orig = {"a": 1, "b": {"c": {"d": [{}, {}]}}}
     # _orig = MergeDict(**orig)
-    merge(orig, {"a": 2, "b": {"c": {"e": 3, ("d", 1): {"stuff": "second"}}, "l": "p"}, "h": "q"})
+    merge(
+        orig,
+        {
+            "a": 2,
+            "b": {"c": {"e": 3, ("d", 1): {"stuff": "second"}}, "l": "p"},
+            "h": "q",
+        },
+    )
     print(orig)

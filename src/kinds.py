@@ -1,125 +1,10 @@
 import asyncio
 
 import kopf
-import kubernetes.client.rest
-import yaml
 
-from util import merge, superget
-
-# The useful page
-# https://github.com/kubernetes-client/python/blob/master/kubernetes/README.md
-
-
-class BaseService:
-    delete_method = None
-    patch_method = None
-    post_method = None
-    api_klass = "CoreV1Api"
-
-    def __init__(self, *, logger):
-        self.logger = logger
-        self.client = getattr(kubernetes.client, self.api_klass)()
-
-    def __transact(self, method_name, **kwargs):
-        _method = getattr(self.client, method_name)
-        obj = _method(**kwargs)
-        return obj
-
-    def _patch(self, **kwargs):
-        return self.__transact(self.patch_method, **kwargs)
-
-    def _post(self, **kwargs):
-        return self.__transact(self.post_method, **kwargs)
-
-    def _delete(self, **kwargs):
-        return self.__transact(self.delete_method, **kwargs)
-
-    def _render_manifest(self, *, template, **kwargs):
-        _template = Path("manifests") / template
-        # get template
-        with open(_template) as f:
-            # render template
-            text = f.read().format(**kwargs)
-        return yaml.safe_load(text)
-
-    def _enrich_manifest(self, *, body, enrichments):
-        if not enrichments:
-            return body
-        return merge(body, enrichments)
-
-    def ensure(
-        self,
-        *,
-        namespace,
-        template=None,
-        body=None,
-        parent=None,
-        existing=None,
-        enrichments=None,
-        delete=False,
-        **kwargs,
-    ):
-        obj = None
-        if not delete:
-            if body:
-                _body = yaml.safe_load(body)
-            elif template:
-                _body = self._render_manifest(
-                    template=template, namespace=namespace, **kwargs
-                )
-            else:
-                raise Exception("wtf")  # config error
-            _body = self._enrich_manifest(_body, enrichments)
-        # post/patch template
-        if existing:
-            if delete:
-                obj = self._delete(namespace=namespace, name=existing)
-            else:
-                # do patch
-                obj = self._patch(namespace=namespace, name=existing, body=_body)
-        elif not delete:
-            kopf.adopt(manifest, owner=parent)
-            # do post
-            obj = self._post(namespace=namespace, body=_body)
-        return obj
-
-
-class DeploymentService(BaseService):
-    delete_method = "delete_namespaced_deployment"
-    patch_method = "patch_namespaced_deployment"
-    post_method = "create_namespaced_deployment"
-
-
-class ServiceService(BaseService):
-    delete_method = "delete_namespaced_service"
-    patch_method = "patch_namespaced_service"
-    post_method = "create_namespaced_service"
-
-
-class IngressService(BaseService):
-    delete_method = "delete_namespaced_ingress"
-    patch_method = "patch_namespaced_ingress"
-    post_method = "create_namespaced_ingress"
-
-
-class JobService(BaseService):
-    delete_method = "delete_namespaced_job"
-    patch_method = "patch_namespaced_job"
-    post_method = "create_namespaced_job"
-
-
-class PodService(BaseService):
-    """Now _this_ is what I call pod servicing!"""
-
-    delete_method = "delete_namespaced_pod"
-    read_status_method = "read_namespaced_pod_status"
-
-    def read_status(self, **kwargs):
-        return self.__transact(self.read_status_method, **kwargs)
-
-
-class WaitedTooLongException(Exception):
-    pass
+from services import (DeploymentService, IngressService, JobService,
+                      PodService, ServiceService)
+from utils import WaitedTooLongException, superget
 
 
 class DjangoKind:
@@ -128,6 +13,7 @@ class DjangoKind:
         "service": ServiceService,
         "ingress": IngressService,
         "job": JobService,
+        "pod": PodService,
     }
 
     def _ensure(self, namespace, body, kind, purpose, delete=False, **kwargs):
@@ -151,7 +37,9 @@ class DjangoKind:
         _completed = ("succeeded", "failed", "unknown")
         while (phase := self._pod_phase(**pod_kwargs)) not in _completed:
             if _iterations > iterations:
-                raise WaitedTooLongException
+                raise WaitedTooLongException(
+                    f"Pod still running after {iterations * period} seconds"
+                )
             await asyncio.sleep(period)
             return phase
 
@@ -163,12 +51,12 @@ class DjangoKind:
 
     async def _until_pod_ready(self, *, period=6.0, iterations=20, **pod_kwargs):
         _iterations = 0
-        _ready = ("")
         while not self._pod_reached_condition(condition="ready", **pod_kwargs):
             if _iterations > iterations:
-                raise WaitedTooLongException
+                raise WaitedTooLongException(
+                    f"Pod not ready after {iterations * period} seconds"
+                )
             await asyncio.sleep(period)
-
 
     def ensure_redis(self, *, status, base_kwargs):
         ret = {}
@@ -190,7 +78,7 @@ class DjangoKind:
         )
         return ret
 
-    def ensure_manage_commands(self, *, manage_commands, patch, base_kwargs):
+    def ensure_manage_commands(self, *, manage_commands, body, patch, base_kwargs):
         enriched_commands = []
         for manage_command in manage_commands:
             _manage_command = "-".join(manage_command)
@@ -201,13 +89,13 @@ class DjangoKind:
                     "command": ["python", "manage.py"] + manage_command,
                 }
             )
-        migrations_enrichment = {
+        enrichments = {
             "spec": {"template": {"spec": {"initContainers": enriched_commands}}}
         }
         self._ensure(
             kind="job",
             purpose="migrations",
-            enrichments=migrations_enrichments,
+            enrichments=enrichments,
             **base_kwargs,
         )
 
@@ -221,6 +109,7 @@ class DjangoKind:
             # problem
             # TODO: roll back migrations to prior version, abandon update
             patch.status["condition"] = "degraded"
+            kopf.exception(body, reason="ManageCommandFailure", message="")
             raise kopf.PermanentError(
                 "migrations took too long, manual intervention required!"
             )
@@ -232,7 +121,7 @@ class DjangoKind:
                 "migrations failed, manual intervention required!"
             )
 
-        patch.status["migrationVersion"] = base_kwargs.get('version')
+        patch.status["migrationVersion"] = base_kwargs.get("version")
         # TODO: collect more ganular data about last migration applied for each app.
         #  store in status
 
@@ -257,7 +146,9 @@ class DjangoKind:
             existing_deployment = None
         return former_deployment, existing_deployment
 
-    def _migrate_deployment(self, *, purpose, status, enrichments, base_kwargs, skip_delete=False):
+    def _migrate_deployment(
+        self, *, purpose, status, enrichments, base_kwargs, skip_delete=False
+    ):
         former_deployment, existing_deployment = self._deployment_names(
             purpose=purpose,
             status=status,
@@ -296,24 +187,28 @@ class DjangoKind:
                             "command": superget(
                                 spec,
                                 f"commands.{purpose}.command",
-                                _raise=kopf.PermanentError(f"missing {purpose} command"),
+                                _raise=kopf.PermanentError(
+                                    f"missing {purpose} command"
+                                ),
                             ),
                             "args": superget(spec, f"commands.{purpose}.args", []),
                             "env": spec.get("env", {}),
                             "envFrom": spec.get("envFrom", {}),
                             "volumeMounts": spec.get("volumeMounts", {}),
-                        }
+                        },
                     }
-                }
+                },
             }
         }
 
-    async def ensure_green_app(self, *, spec, status, base_kwargs):
+    async def ensure_green_app(self, *, patch, body, spec, status, base_kwargs):
         enrichments = self._base_enrichments(spec=spec, purpose="app")
-        enrichments["spec"]["template"]["spec"][("containers", 0)].update({
-            "livenessProbe": spec.get("appProbeSpec", {}),
-            "readinessProbe": spec.get("appProbeSpec", {}),
-        })
+        enrichments["spec"]["template"]["spec"][("containers", 0)].update(
+            {
+                "livenessProbe": spec.get("appProbeSpec", {}),
+                "readinessProbe": spec.get("appProbeSpec", {}),
+            }
+        )
         ret = self._migrate_deployment(
             purpose="app",
             status=status,
@@ -324,15 +219,19 @@ class DjangoKind:
 
         # await status checks
         try:
-            await self._until_pod_ready(namespace=base_kwargs.get("namespace"), name=superget(ret, "deployment.app"))
+            await self._until_pod_ready(
+                namespace=base_kwargs.get("namespace"),
+                name=superget(ret, "deployment.app"),
+            )
         except WaitedTooLongException:
             patch.status["condition"] = "degraded"
+            kopf.exception(body, reason="AppPodNotReady", message="")
             raise kopf.PermanentError("App pod not coming up :(")
         return ret
 
     def delete_blue_app(self, *, status, base_kwargs):
         former_deployment, _ = self._deployment_names(
-            purpose=purpose,
+            purpose="app",
             status=status,
             base_kwargs=base_kwargs,
         )
@@ -343,7 +242,7 @@ class DjangoKind:
                 purpose="app",
                 existing=former_deployment,
                 delete=True,
-                **_base,
+                **base_kwargs,
             )
 
     def ensure_worker(self, *, spec, status, base_kwargs):
@@ -360,7 +259,7 @@ class DjangoKind:
         return self._migrate_deployment(
             purpose="beat",
             status=status,
-            enrichments=self._base_enrichments(spec=spec, purpose="beat"),,
+            enrichments=self._base_enrichments(spec=spec, purpose="beat"),
             base_kwargs=base_kwargs,
         )
 
@@ -386,6 +285,7 @@ class DjangoKind:
     async def update_or_create(
         self, meta, spec, namespace, logger, body, patch, status, **kwargs
     ):
+        kopf.info(body, reason="Migrating", message="Enacting new config")
         patch.status["condition"] = "migrating"
         # validate by fire
         try:
@@ -395,6 +295,7 @@ class DjangoKind:
             _image = spec["image"]
         except KeyError:
             patch.status["condition"] = "degraded"
+            kopf.exception(body, reason="ConfigError", message="")
             raise kopf.PermanentError("Spec missing required field")
 
         logger.info(f"Migrating from {status.get('version', 'new')} to {version}")
@@ -426,97 +327,104 @@ class DjangoKind:
             ),
         }
 
-
         # create redis deployment (this is static, so
         #   not going to worry about green-blue)
-        logger.info(f"Setting redis deployment")
+        logger.info("Setting redis deployment")
         ret.update(self.ensure_redis(status=status, patch=patch, base_kwargs=_base))
 
-        logger.info(f"Beginning management commands")
+        logger.info("Beginning management commands")
         # create ephemeral job for for `initManageCommands`
         manage_commands = spec.get("initManageCommands", [])
         if manage_commands:
             await self.ensure_manage_commands(
                 manage_commands=manage_commands,
                 patch=patch,
+                body=body,
                 base_kwargs=_base,
             )
 
-        logger.info(f"Setting up green app deployment")
+        logger.info("Setting up green app deployment")
         # bring up the green app deployment
-        ret.update(await self.ensure_green_app(
-            spec=spec,
-            patch=patch,
-            status=status,
-            base_kwargs=_base,
-        ))
+        ret.update(
+            await self.ensure_green_app(
+                spec=spec,
+                patch=patch,
+                body=body,
+                status=status,
+                base_kwargs=_base,
+            )
+        )
 
-        logging.info(f"Setting up green worker deployment")
+        logger.info("Setting up green worker deployment")
         # bring up new worker and dismiss old one
-        ret.update(self.ensure_worker(
-            spec=spec,
-            status=status,
-            base_kwargs=_base,
-        ))
+        ret.update(
+            self.ensure_worker(
+                spec=spec,
+                status=status,
+                base_kwargs=_base,
+            )
+        )
 
-        logging.info(f"Setting up green beat deployment")
+        logger.info("Setting up green beat deployment")
         # bring up new beat and dismiss old one
-        ret.update(self.ensure_beat(
-            spec=spec,
-            status=status,
-            base_kwargs=_base,
-        ))
+        ret.update(
+            self.ensure_beat(
+                spec=spec,
+                status=status,
+                base_kwargs=_base,
+            )
+        )
 
-        logging.info(f"Migrating service to green app deployment")
+        logger.info("Migrating service to green app deployment")
         # update app service selector, create ingress
         ret.update(self.migrate_service(base_kwargs=_base))
 
-        logging.info(f"Removing blue app deployment")
+        logger.info("Removing blue app deployment")
         # bring down the blue app deployment
-        self.delete_blue_app(status, base_kwargs):
+        self.delete_blue_app(status=status, base_kwargs=_base)
 
-        logging.info(f"Migration complete. All that was green is now blue")
         # patch status
         patch.status["condition"] = "running"
         patch.status["version"] = version
-        patch.status["replicas"]["app"] = app_replicas
-        patch.status["replicas"]["worker"] = worker_replicas
+        patch.status["replicas"]["app"] = _base["app_replicas"]
+        patch.status["replicas"]["worker"] = _base["worker_replicas"]
+        logger.info("Migration complete. All that was green is now blue")
+        kopf.info(body, reason="Ready", message="New config running")
         return ret
 
+    def scale_deployment(
+        *, namespace, body, spec, status, patch, deployment="app", **kwargs
+    ):
+        min_count = superget(spec, f"replicas.{deployment}", 1)
+        replica_count = superget(status, f"replicas.{deployment}", 0)
+        desired_count = replica_count
+        # To actually get this we need the k8s metrics server
+        # https://docs.aws.amazon.com/eks/latest/userguide/metrics-server.html
+        # and possibly make a PodMetrics resource; might be more trouble than
+        # it's worth right now
+        overall_cpu = 0.69  # IDK how to get this really
+        if overall_cpu > 0.85:
+            desired_count += 1
+        elif overall_cpu < 0.5:
+            desired_count -= 1
+        desired_count = max(10, min(min_count, desired_count))
 
-@kopf.on.update("thismatters.github", "v1alpha", "django")
-@kopf.on.create("thismatters.github", "v1alpha", "django")
-def created(**kwargs):
-    return DjangoKind().update_or_create(**kwargs)
+        if desired_count == replica_count:
+            return
+        try:
+            deployment_name = superget(
+                status,
+                f"created.{deployment}",
+                _raise=Exception(f"missing {deployment} deployment"),
+            )
+        except Exception:
+            kopf.warn(body, reason="ScalingError", message="Cannot scale:")
+            raise kopf.TemporaryError("Deployment is not ready yet", delay=45)
 
-
-def _scale_deployment(*, spec, status, patch, deployment="app"):
-    min_count = spec.get("replicas", {}).get(deployment)
-    replica_count = status.get("replicas", {}).get(deployment)
-    desired_count = replica_count
-    # To actually get this we need the k8s metrics server
-    # https://docs.aws.amazon.com/eks/latest/userguide/metrics-server.html
-    # and possibly make a PodMetrics resource; might be more trouble than
-    # it's worth right now
-    overall_cpu = 0.69  # IDK how to get this really
-    if overal_cpu > 0.85:
-        desired_count += 1
-    elif overal_cpu < 0.5:
-        desired_count -= 1
-    desired_count = max(10, min(min_count, desired_count))
-
-    if desired_count == replica_count:
-        return
-    deployment_name = status.get("created", {}).get(deployment)
-    DeploymentService().ensure(
-        namespace=namespace,
-        existing=deployment_name,
-        body={"spec": {"replicas": desired_count}},
-    )
-    patch.status["replicas"][deployment] = desired_count
-
-
-# @kopf.on.timer("thismatters.net", "v1alpha", "django", interval=30)
-# def scale_deployment(namespace, spec, status, patch, **kwargs):
-#     _scale_deployment(spec=spec, status=status, patch=patch)
-#     _scale_deployment(spec=spec, status=status, patch=patch, deployment="worker")
+        deployment_name = status.get("created", {}).get(deployment)
+        DeploymentService().ensure(
+            namespace=namespace,
+            existing=deployment_name,
+            body={"spec": {"replicas": desired_count}},
+        )
+        patch.status["replicas"][deployment] = desired_count

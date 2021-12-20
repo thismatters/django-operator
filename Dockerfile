@@ -1,5 +1,17 @@
-FROM python:3.7
-ADD . /src
-RUN pip install -r requirements.txt
+FROM python:3.9-alpine
 
-CMD kopf run /src/mp_operator.py --verbose
+RUN mkdir -p /op
+WORKDIR /op
+
+COPY requirements.txt /op
+RUN pip install -r /op/requirements.txt
+RUN rm /op/requirements.txt
+
+ADD ./src /op/src
+ADD ./manifests /op/manifests
+
+RUN adduser -D worker -u 1000
+USER worker
+
+# CMD kopf run src/django.py --verbose
+CMD until false; do sleep 30; done

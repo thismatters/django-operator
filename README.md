@@ -67,9 +67,10 @@ spec:
   * [x] service -- app
   * [x] job -- migrations
 * [x] write create/update the code
+* [x] more logging, send events
 * [] write delete code (shouldn't be much here really...)
 * [] set up CI pipeline
-* [] lint
+* [x] lint
 * [] deploy to cluster (for testing)
 * [] test (create a new namespace for testing, and use an arbitrary URL)
 * [] deploy
