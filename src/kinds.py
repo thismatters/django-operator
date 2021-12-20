@@ -2,8 +2,13 @@ import asyncio
 
 import kopf
 
-from services import (DeploymentService, IngressService, JobService,
-                      PodService, ServiceService)
+from services import (
+    DeploymentService,
+    IngressService,
+    JobService,
+    PodService,
+    ServiceService,
+)
 from utils import WaitedTooLongException, superget
 
 

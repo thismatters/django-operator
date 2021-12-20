@@ -1,0 +1,5 @@
+[flake8]
+exclude = migrations
+ignore = D100,D101,D102,D104,D105,D106,D107,D205,D209,D400,D401,W503,C901,E231,E203
+max-line-length = 100
+max-complexity = 10
