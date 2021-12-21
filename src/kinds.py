@@ -83,7 +83,9 @@ class DjangoKind:
         )
         return ret
 
-    async def ensure_manage_commands(self, *, manage_commands, body, patch, base_kwargs):
+    async def ensure_manage_commands(
+        self, *, manage_commands, body, patch, base_kwargs
+    ):
         enriched_commands = []
         for manage_command in manage_commands:
             _manage_command = "-".join(manage_command)
