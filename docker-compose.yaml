@@ -3,6 +3,7 @@ version: '3'
 services:
   op:
     build: .
+    command: ["sh", "-c", "until false; do sleep 30; done"]
     volumes:
       - ./src:/op/src
       - ./manifests:/op/manifests

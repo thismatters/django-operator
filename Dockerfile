@@ -13,5 +13,4 @@ ADD ./manifests /op/manifests
 RUN adduser -D worker -u 1000
 USER worker
 
-# CMD kopf run src/django.py --verbose
-CMD until false; do sleep 30; done
+CMD kopf run src/django.py --verbose

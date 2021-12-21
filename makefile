@@ -2,6 +2,8 @@ build:
 	@docker-compose -p djop build op
 run:
 	@docker-compose -p djop up -d
+shell:
+	@docker-compose -p djop exec op sh
 prelint:
 	@docker-compose -p djop exec op pip install black isort flake8
 lint:

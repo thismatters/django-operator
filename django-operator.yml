@@ -1,0 +1,292 @@
+# https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/
+
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: django.thismatters.github
+spec:
+  scope: Namespaced
+  group: thismatters.github
+  names:
+    kind: Django
+    plural: djangos
+    singular: django
+  versions:
+    - name: v1alpha
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                host:
+                  type: string
+                image:
+                  type: string
+                version:
+                  type: string
+                clusterIssuer:
+                  type: string
+                replicas:
+                  type: object
+                  properties:
+                    app:
+                      type: integer
+                      format: int32
+                      minimum: 1
+                      default: 1
+                    worker:
+                      type: integer
+                      format: int32
+                      minimum: 1
+                      default: 1
+                ports:
+                  type: object
+                  properties:
+                    app:
+                      type: integer
+                      format: int32
+                      default: 8000
+                    redis:
+                      type: integer
+                      format: int32
+                      default: 6379
+                env:
+                  additionalProperties:
+                    type: string
+                  type: object
+                envFromConfigMapRefs:
+                  items:
+                    type: string
+                  type: array
+                envFromSecretRefs:
+                  items:
+                    type: string
+                  type: array
+                imagePullSecrets:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                volumes:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      secret:
+                        type: object
+                        properties:
+                          secretName:
+                            type: string
+                volumeMounts:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      mountPath:
+                        type: string
+                      readOnly:
+                        type: boolean
+                initManageCommands:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: string
+                commands:
+                  type: object
+                  properties:
+                    app:
+                      type: object
+                      properties:
+                        command:
+                          type: array
+                          items:
+                            type: string
+                        args:
+                          type: array
+                          items:
+                            type: string
+                    worker:
+                      type: object
+                      properties:
+                        command:
+                          type: array
+                          items:
+                            type: string
+                        args:
+                          type: array
+                          items:
+                            type: string
+                    beat:
+                      type: object
+                      properties:
+                        command:
+                          type: array
+                          items:
+                            type: string
+                        args:
+                          type: array
+                          items:
+                            type: string
+                    appProbeSpec:
+                      type: object
+                      properties:
+                        httpGet:
+                          type: object
+                          properties:
+                            scheme:
+                              type: string
+                              default: HTTP
+                            path:
+                              type: string
+                              default: /
+                            port:
+                              type: integer
+                              format: int32
+                              default: 8000
+                            httpHeaders:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                                    value: string
+                        initialDelaySeconds:
+                          type: integer
+                          format: int32
+                          default: 30
+                        periodSeconds:
+                          type: integer
+                          format: int32
+                          default: 10
+                        timeoutSeconds:
+                          type: integer
+                          format: int32
+                          default: 1
+                        failureThreshold:
+                          type: integer
+                          format: int32
+                          default: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-operator
+  namespace: django-operator
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      application: django-operator
+  template:
+    metadata:
+      labels:
+        application: django-operator
+    spec:
+      serviceAccountName: django-account
+      containers:
+      - name: operator
+        image: registry.gitlab.com/thismatters/django-operator:latest
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: "django-operator"
+  name: django-account
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: django-role-cluster
+rules:
+  # Framework: knowing which other operators are running (i.e. peering).
+  - apiGroups: [thismatters.github]
+    resources: [clusterkopfpeerings]
+    verbs: [list, watch, patch, get]
+  # Framework: runtime observation of namespaces & CRDs (addition/deletion).
+  - apiGroups: [apiextensions.k8s.io]
+    resources: [customresourcedefinitions]
+    verbs: [list, watch]
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [list, watch]
+  # Framework: admission webhook configuration management.
+  - apiGroups: [admissionregistration.k8s.io/v1, admissionregistration.k8s.io/v1beta1]
+    resources: [validatingwebhookconfigurations, mutatingwebhookconfigurations]
+    verbs: [create, patch]
+  # Application: read-only access for watching cluster-wide.
+  - apiGroups: [thismatters.github]
+    resources: [djangos]
+    verbs: [list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  namespace: "django-operator"
+  name: django-role-namespaced
+rules:
+  # Framework: knowing which other operators are running (i.e. peering).
+  - apiGroups: [thismatters.github]
+    resources: [kopfpeerings]
+    verbs: [list, watch, patch, get]
+  # Framework: posting the events about the handlers progress/errors.
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create]
+  # Application: watching & handling for the custom resource we declare.
+  - apiGroups: [thismatters.github]
+    resources: [django]
+    verbs: [list, watch, patch]
+  # Application: other resources it produces and manipulates.
+  # Here, we create Jobs+PVCs+Pods, but we do not patch/update/delete them ever.
+  - apiGroups: [batch, extensions]
+    resources: [jobs]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [deployment, service]
+    verbs: [create, patch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingress]
+    verbs: [create, patch]
+  - apiGroups: [""]
+    resources: [pod]
+    verbs: [delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: django-rolebinding-cluster
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: django-role-cluster
+subjects:
+  - kind: ServiceAccount
+    name: django-account
+    namespace: "django-operator"
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  namespace: "django-operator"
+  name: django-rolebinding-namespaced
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: django-role-namespaced
+subjects:
+  - kind: ServiceAccount
+    name: django-account

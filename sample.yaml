@@ -2,45 +2,32 @@
 apiVersion: thismatters.github/v1alpha
 kind: Django
 metadata:
-  name: my-project
-  namespace: default
+  name: example-project
+  namespace: example
 spec:
-  host: app.moneypositive.coop
-  image: registry.gitlab.com/registry.gitlab.com/money-positive/mp-app
+  host: app.example.com
+  image: registry.example.com/repo/project
   version: "2021.12.1"
+  # it is expected that the version will be the tag for the image
+  clusterIssuer: letsencrypt
   replicas:
     app: 2
     worker: 1
-  useCelery: true
-  useBeat: true
-  useRedis: true
-  clusterIssuer: letsencrypt
   ports:
-    # these are defaults
     app: 8000
     redis: 6379
-  # set some ENVs
   env: {}
-  # get some ENVs from predefined secrets/configmaps
-  envFrom:
-  - configMapRef:
-      name: env
-  - secretRef:
-      name: aws
-  - secretRef:
-      name: crypto
-  - secretRef:
-      name: database
-  - secretRef:
-      name: email
-  - secretRef:
-      name: google-auth
-  - secretRef:
-      name: paysimple
-  - secretRef:
-      name: plaid
-  - secretRef:
-      name: secret-key
+  envFromConfigMapRefs:
+  - env
+  envFromSecretRefs:
+  - aws
+  - crypto
+  - database
+  - email
+  - google-auth
+  - paysimple
+  - plaid
+  - secret-key
   imagePullSecrets:
   - name: gitlab-registry-read
   volumes:
@@ -74,8 +61,8 @@ spec:
       path: /privacy/
       port: 8000
       httpHeaders:
-        - name: Host
-          value: app.moneypositive.coop
+      - name: Host
+        value: app.moneypositive.coop
     initialDelaySeconds: 45
     periodSeconds: 11
     timeoutSeconds: 2

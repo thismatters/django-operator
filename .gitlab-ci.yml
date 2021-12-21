@@ -1,0 +1,40 @@
+image: "python:3.9-alpine"
+
+stages:
+  - build
+  - test
+  - deploy
+
+build-operator:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile Dockerfile --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+
+test-operator:
+  stage: test
+  before_script:
+    - pip install black==21.12b0 isort==5.10.1 flake8==4.0.1
+    - export PATH=PATH:/home/worker/.local/bin
+  script:
+    - cd src
+    - black --check .
+    - isort . --check --diff
+    - flake8
+
+deploy-operator:
+  image: docker:latest
+  stage: deploy
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script:
+    - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest
+    - docker push $CI_REGISTRY_IMAGE:latest
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest-$CI_COMMIT_REF_NAME
+    - docker push $CI_REGISTRY_IMAGE:latest-$CI_COMMIT_REF_NAME

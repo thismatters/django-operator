@@ -83,7 +83,7 @@ class DjangoKind:
         )
         return ret
 
-    def ensure_manage_commands(self, *, manage_commands, body, patch, base_kwargs):
+    async def ensure_manage_commands(self, *, manage_commands, body, patch, base_kwargs):
         enriched_commands = []
         for manage_command in manage_commands:
             _manage_command = "-".join(manage_command)
@@ -181,13 +181,18 @@ class DjangoKind:
         return ret
 
     def _base_enrichments(self, *, spec, purpose):
+        env_from = []
+        for config_map_name in spec.get("envFromConfigMapRefs", []):
+            env_from.append({"configMapRef": {"name": config_map_name}})
+        for config_map_name in spec.get("envFromSecretRefs", []):
+            env_from.append({"secretRef": {"name": config_map_name}})
         return {
             "spec": {
                 "strategy": spec.get("strategy", {}),
                 "template": {
                     "spec": {
-                        "imagePullSecrets": spec.get("imagePullSecrets", {}),
-                        "volumes": spec.get("volumes", {}),
+                        "imagePullSecrets": spec.get("imagePullSecrets", []),
+                        "volumes": spec.get("volumes", []),
                         ("containers", 0): {
                             "command": superget(
                                 spec,
@@ -198,8 +203,8 @@ class DjangoKind:
                             ),
                             "args": superget(spec, f"commands.{purpose}.args", []),
                             "env": spec.get("env", {}),
-                            "envFrom": spec.get("envFrom", {}),
-                            "volumeMounts": spec.get("volumeMounts", {}),
+                            "envFrom": env_from,
+                            "volumeMounts": spec.get("volumeMounts", []),
                         },
                     }
                 },
