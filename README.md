@@ -1,8 +1,8 @@
-# MP Operator
+# Django Operator
 
-A [Kubernetes operator](https://github.com/cncf/tag-app-delivery/blob/main/operator-wg/whitepaper/Operator-WhitePaper_v1-0.md) for Money Positive.
+A [Kubernetes operator](https://github.com/cncf/tag-app-delivery/blob/main/operator-wg/whitepaper/Operator-WhitePaper_v1-0.md) for a Django stack including Celery, django-celery-beat, and redis.
 
-Provides a `MoneyPositive` CRD which:
+Provides a `Django` CRD which:
 * Coordinates deployment of app
   * creates ingresses for app
   * creates certs for app
@@ -17,46 +17,11 @@ Provides a `MoneyPositive` CRD which:
 Takes some inspiration from [21h/django-operator](https://git.blindage.org/21h/django-operator) which is presented as a freestanding operator written in `go`.
 
 
-```yaml
-apiVersion: blindage.org/v2
-kind: Django
-metadata:
-  name: my-project
-  namespace: default
-spec:
-  image: registry.gitlab.com/my-organization/project-repo/master:11
-  replicas: 2
-  # port opened by application inside container
-  appPort: 8000
-  # set some ENVs
-  appEnvs:
-    DJANGO_SUPERUSER_USERNAME: "root"
-    DJANGO_SUPERUSER_EMAIL: root@root.xyz
-    ALLOWED_HOSTS: "*"
-  # get some ENVs from predefined secret resource
-  appEnvsSecrets:
-    - my-project-secrets
-  # or you can mount ENVs from configmap
-  appEnvsConfigmaps:
-    - other-project-envs
-  # path to static files, default /app/static
-  appStaticPath: "/app/static"
-  # path to media files, default /app/media, used for file uploads
-  appMediaPath: "/app/media"
-  # run 'python manage.py migrate --noinput' in init container before start
-  runMigrate: true
-  # run 'python manage.py collectstatic --noinput' in init container before start
-  runCollectStatic: true
-  # persistence for appMediaPath
-  # use this for file uploads
-  persistentVolumeClaim: supershop-disk
-```
-
 ## TODO:
 
 * [x] Update secrets in staging, prod once tested
 * [x] Figure out global pattern (https://github.com/nolar/kopf/issues/876) -- monolithic!
-* [] write CRD
+* [x] write CRD
 * [x] create manifests for:
   * [x] deployment -- app
   * [x] deployment -- worker
@@ -69,7 +34,7 @@ spec:
 * [x] write create/update the code
 * [x] more logging, send events
 * [] write delete code (shouldn't be much here really...)
-* [] set up CI pipeline
+* [x] set up CI pipeline
 * [x] lint
 * [] deploy to cluster (for testing)
 * [] test (create a new namespace for testing, and use an arbitrary URL)
