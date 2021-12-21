@@ -329,13 +329,17 @@ class DjangoKind:
             "cluster_issuer": cluster_issuer,
             "version": version,
             "image": image,
-            "redis_port": superget(spec, "ports.redis", 6379),
-            "app_port": superget(spec, "ports.app", 8000),
+            "redis_port": superget(spec, "ports.redis", default=6379),
+            "app_port": superget(spec, "ports.app", default=8000),
             "app_replicas": superget(
-                status, "replicas.app", superget(spec, "replicas.app", 1)
+                status,
+                "replicas.app",
+                default=superget(spec, "replicas.app", default=1),
             ),
             "worker_replicas": superget(
-                status, "replicas.worker", superget(spec, "replicas.worker", 1)
+                status,
+                "replicas.worker",
+                default=superget(spec, "replicas.worker", default=1),
             ),
         }
 
@@ -407,8 +411,8 @@ class DjangoKind:
     def scale_deployment(
         *, namespace, body, spec, status, patch, deployment="app", **kwargs
     ):
-        min_count = superget(spec, f"replicas.{deployment}", 1)
-        replica_count = superget(status, f"replicas.{deployment}", 0)
+        min_count = superget(spec, f"replicas.{deployment}", default=1)
+        replica_count = superget(status, f"replicas.{deployment}", default=0)
         desired_count = replica_count
         # To actually get this we need the k8s metrics server
         # https://docs.aws.amazon.com/eks/latest/userguide/metrics-server.html
