@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "migrations-{version_slug}"
+spec:
+  initContainers: []
+  containers:
+  - name: finishing
+    image: busybox
+    command: ["sleep", "1"]
+  restartPolicy: Never

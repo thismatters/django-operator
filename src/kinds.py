@@ -94,20 +94,20 @@ class DjangoKind:
                     "name": slugify(_manage_command),
                     "image": base_kwargs.get("image"),
                     "command": ["python", "manage.py"] + manage_command,
+                    "env": spec.get("env", {}),
+                    "envFrom": env_from,
+                    "volumeMounts": spec.get("volumeMounts", []),
                 }
             )
         enrichments = {
             "spec": {
-                "template": {
-                    "spec": {
-                        "imagePullSecrets": spec.get("imagePullSecrets", []),
-                        "initContainers": enriched_commands,
-                    }
-                }
+                "imagePullSecrets": spec.get("imagePullSecrets", []),
+                "volumes": spec.get("volumes", []),
+                "initContainers": enriched_commands,
             }
         }
-        self._ensure(
-            kind="job",
+        _pod = self._ensure(
+            kind="pod",
             purpose="migrations",
             enrichments=enrichments,
             **base_kwargs,
@@ -117,7 +117,7 @@ class DjangoKind:
         try:
             completed_phase = await self._until_pod_completes(
                 namespace=base_kwargs.get("namespace"),
-                name=f"migrations-{base_kwargs.get('version_slug')}",
+                name=_pod.metadata.name,
             )
         except WaitedTooLongException:
             # problem
@@ -139,10 +139,11 @@ class DjangoKind:
         # TODO: collect more ganular data about last migration applied for each app.
         #  store in status
 
-        # delete the job
+        # delete the pod
         self._ensure(
-            kind="job",
+            kind="pod",
             purpose="migrations",
+            existing=_pod.metadata.name,
             delete=True,
             **base_kwargs,
         )
