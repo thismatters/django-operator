@@ -25,7 +25,6 @@ spec:
       containers:
       - name: worker
         image: "{image}"
-        command:
         envFrom: []
         env:
         - name: CONTAINER_PURPOSE
