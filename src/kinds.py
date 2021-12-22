@@ -226,7 +226,7 @@ class DjangoKind:
                             "args": superget(
                                 spec, f"commands.{purpose}.args", default=[]
                             ),
-                            "env": spec.get("env", {}),
+                            "env": spec.get("env", []),
                             "envFrom": env_from,
                             "volumeMounts": spec.get("volumeMounts", []),
                         },

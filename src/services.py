@@ -59,7 +59,11 @@ class BaseService:
 
     def _enrich_manifest(self, *, body, enrichments):
         if enrichments:
-            merge(body, enrichments)
+            try:
+                merge(body, enrichments)
+            except ValueError as e:
+                self.logger.debug(f"merge failed: {e}")
+                raise
         return body
 
     def ensure(
