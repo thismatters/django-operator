@@ -37,10 +37,10 @@ class DjangoKind:
         return {kind: {purpose: obj.metadata.name}}
 
     def _pod_phase(self, namespace, name):
-        status = PodService(logger=self.logger).read_status(
+        pod = PodService(logger=self.logger).read_status(
             namespace=namespace, name=name
         )
-        return status.phase
+        return pod.status.phase
 
     async def _until_pod_completes(self, *, period=6.0, iterations=20, **pod_kwargs):
         _iterations = 0
