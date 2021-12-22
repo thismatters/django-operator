@@ -52,10 +52,11 @@ class DjangoKind:
             return phase
 
     def _deployment_reached_condition(self, *, namespace, name, condition):
-        status = DeploymentService(logger=self.logger).read_status(
+        deployment = DeploymentService(logger=self.logger).read_status(
             namespace=namespace, name=name
         )
-        for _condition in status.conditions:
+        self.logger.debug(f"deployment conditions: {deployment.status.conditions}")
+        for _condition in deployment.status.conditions:
             if _condition.type == condition:
                 return _condition.status == "True"
 
