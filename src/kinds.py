@@ -98,7 +98,7 @@ class DjangoKind:
                     "name": slugify(_manage_command),
                     "image": base_kwargs.get("image"),
                     "command": ["python", "manage.py"] + manage_command,
-                    "env": spec.get("env", {}),
+                    "env": spec.get("env", []),
                     "envFrom": env_from,
                     "volumeMounts": spec.get("volumeMounts", []),
                 }

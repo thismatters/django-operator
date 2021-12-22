@@ -28,7 +28,8 @@ spec:
         command:
         envFrom: {{}}
         env:
-          CONTAINER_PURPOSE: "{purpose}"
+        - name: CONTAINER_PURPOSE
+          value: "{purpose}"
         volumeMounts: {{}}
         imagePullPolicy: Always
         resources:
