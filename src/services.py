@@ -84,6 +84,7 @@ class DeploymentService(BaseService):
     delete_method = "delete_namespaced_deployment"
     patch_method = "patch_namespaced_deployment"
     post_method = "create_namespaced_deployment"
+    api_klass = "AppsV1Api"
 
 
 class ServiceService(BaseService):
@@ -96,12 +97,14 @@ class IngressService(BaseService):
     delete_method = "delete_namespaced_ingress"
     patch_method = "patch_namespaced_ingress"
     post_method = "create_namespaced_ingress"
+    api_klass = "NetworkingV1Api"
 
 
 class JobService(BaseService):
     delete_method = "delete_namespaced_job"
     patch_method = "patch_namespaced_job"
     post_method = "create_namespaced_job"
+    api_klass = "BatchV1Api"
 
 
 class PodService(BaseService):
