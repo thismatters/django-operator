@@ -431,8 +431,10 @@ class DjangoKind:
         # patch status
         patch.status["condition"] = "running"
         patch.status["version"] = version
-        patch.status["replicas"]["app"] = _base["app_replicas"]
-        patch.status["replicas"]["worker"] = _base["worker_replicas"]
+        patch.status["replicas"] = {
+            "app": _base["app_replicas"],
+            "worker": _base["worker_replicas"],
+        }
         self.logger.info("Migration complete. All that was green is now blue")
         kopf.info(body, reason="Ready", message="New config running")
         return ret
