@@ -346,7 +346,7 @@ class DjangoKind:
         # create redis deployment (this is static, so
         #   not going to worry about green-blue)
         logger.info("Setting redis deployment")
-        ret.update(self.ensure_redis(status=status, patch=patch, base_kwargs=_base))
+        ret.update(self.ensure_redis(status=status, base_kwargs=_base))
 
         logger.info("Beginning management commands")
         # create ephemeral job for for `initManageCommands`
