@@ -199,6 +199,7 @@ class DjangoKind:
             env_from.append({"configMapRef": {"name": config_map_name}})
         for config_map_name in spec.get("envFromSecretRefs", []):
             env_from.append({"secretRef": {"name": config_map_name}})
+        return env_from
 
     def _base_enrichments(self, *, spec, purpose):
         env_from = self._get_env_from(spec=spec)
