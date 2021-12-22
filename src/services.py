@@ -72,7 +72,7 @@ class BaseService:
         kopf.adopt(_body, owner=parent)
         if not existing:
             # look for an existing resource anyway
-            _obj = self._read(namespace, name=superget(_body, "metadata.name"))
+            _obj = self._read(namespace=namespace, name=superget(_body, "metadata.name"))
             existing = superget(_obj, "metadata.name")
         # post/patch template
         if existing:

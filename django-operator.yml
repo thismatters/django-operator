@@ -248,7 +248,7 @@ rules:
     verbs: [create]
   - apiGroups: [""]
     resources: [service]
-    verbs: [create, patch]
+    verbs: [list, create, patch, delete]
   - apiGroups: [networking.k8s.io]
     resources: [ingresses]
     verbs: [create, patch]
