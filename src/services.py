@@ -85,7 +85,7 @@ class BaseService:
             else:
                 raise Exception("wtf")  # config error
             _body = self._enrich_manifest(body=_body, enrichments=enrichments)
-        kopf.adopt(_body, owner=parent)
+            kopf.adopt(_body, owner=parent)
         if not existing:
             # look for an existing resource anyway
             try:
