@@ -75,7 +75,7 @@ class BaseService:
             _obj = self._read(
                 namespace=namespace, name=superget(_body, "metadata.name")
             )
-            existing = superget(_obj, "metadata.name")
+            existing = _obj.metadata.name
         # post/patch template
         if existing:
             if delete:
