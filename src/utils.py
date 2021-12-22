@@ -3,7 +3,11 @@ class WaitedTooLongException(Exception):
 
 
 def superget(dct, superkey, *, default=None, _raise=None):
-    key, remainder = superkey.rsplit(".", maxsplit=1)
+    if "." in superkey:
+        key, remainder = superkey.rsplit(".", maxsplit=1)
+    else:
+        key = superkey
+        remainder = None
     if key not in dct:
         if _raise is not None:
             raise _raise
