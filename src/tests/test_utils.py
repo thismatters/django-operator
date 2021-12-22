@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from ..utils import superget, merge
+from ..utils import merge, superget
 
 
 class UtilsTestCase(TestCase):
