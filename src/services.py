@@ -3,7 +3,7 @@ from pathlib import Path
 import kopf
 import kubernetes
 import yaml
-from kubernetes.client.exceptions import ApiException
+from kubernetes.client.exceptions import ApiException, ApiValueError
 
 from utils import merge, superget
 
@@ -27,7 +27,10 @@ class BaseService:
         try:
             obj = _method(**kwargs)
         except ApiException:
-            self.logger.debug(kwargs.get("body", "no body"))
+            self.logger.debug(f"ApiException: {kwargs.get('body', 'no body')}")
+            raise
+        except ApiValueError:
+            self.logger.debug(f"ApiValueError: {kwargs}")
             raise
         return obj
 
