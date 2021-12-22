@@ -39,9 +39,9 @@ class BaseService:
         return yaml.safe_load(text)
 
     def _enrich_manifest(self, *, body, enrichments):
-        if not enrichments:
-            return body
-        return merge(body, enrichments)
+        if enrichments:
+            merge(body, enrichments)
+        return body
 
     def ensure(
         self,
@@ -65,7 +65,7 @@ class BaseService:
                 )
             else:
                 raise Exception("wtf")  # config error
-            _body = self._enrich_manifest(_body, enrichments)
+            _body = self._enrich_manifest(body=_body, enrichments=enrichments)
         # post/patch template
         if existing:
             if delete:
