@@ -52,7 +52,7 @@ class DjangoKind:
             return phase
 
     def _deployment_reached_condition(self, *, namespace, name, condition):
-        status = PodService(logger=self.logger).read_status(
+        status = DeploymentService(logger=self.logger).read_status(
             namespace=namespace, name=name
         )
         for _condition in status.conditions:
