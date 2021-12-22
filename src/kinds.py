@@ -87,6 +87,7 @@ class DjangoKind:
         self, *, manage_commands, spec, body, patch, base_kwargs
     ):
         enriched_commands = []
+        env_from = self._get_env_from(spec=spec)
         for manage_command in manage_commands:
             _manage_command = "-".join(manage_command)
             enriched_commands.append(
@@ -189,12 +190,15 @@ class DjangoKind:
             )
         return ret
 
-    def _base_enrichments(self, *, spec, purpose):
+    def _get_env_from(self, *, spec):
         env_from = []
         for config_map_name in spec.get("envFromConfigMapRefs", []):
             env_from.append({"configMapRef": {"name": config_map_name}})
         for config_map_name in spec.get("envFromSecretRefs", []):
             env_from.append({"secretRef": {"name": config_map_name}})
+
+    def _base_enrichments(self, *, spec, purpose):
+        env_from = self._get_env_from(spec=spec)
         return {
             "spec": {
                 "strategy": spec.get("strategy", {}),
