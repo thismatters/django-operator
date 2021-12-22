@@ -309,7 +309,7 @@ class DjangoKind:
         return ret
 
     async def update_or_create(
-        self, meta, spec, namespace, logger, body, patch, status, **kwargs
+        self, meta, spec, namespace, body, patch, status, **kwargs
     ):
         kopf.info(body, reason="Migrating", message="Enacting new config")
         patch.status["condition"] = "migrating"
