@@ -37,6 +37,7 @@ def merge(left, right):
             continue
         if key_ not in left:
             left[key_] = value_
+            continue
         _value = left[key_]
         if type(_value) != type(value_):
             raise ValueError

@@ -40,6 +40,32 @@ class UtilsTestCase(TestCase):
             },
         )
 
+    def test_complex_merge(self):
+        target = {
+            "spec": {
+                "initContainers": [],
+            }
+        }
+        extension = {
+            "spec": {
+                "imagePullSecrets": [{
+                    "name": "test-value"
+                }]
+            }
+        }
+        merge(target, extension)
+        self.assertEqual(
+            target,
+            {
+                "spec": {
+                    "initContainers": [],
+                    "imagePullSecrets": [{
+                        "name": "test-value"
+                    }],
+                }
+            }
+        )
+
     def test_slugify(self):
         unslug = "bu.nch_of1  OTHEr__shit"
         self.assertEqual(slugify(unslug), "bu-nch-of1-other-shit")
