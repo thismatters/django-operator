@@ -20,17 +20,17 @@ spec:
       - name: init-broker
         image: busybox:1.28.4
         command: ["sh", "-c", "until nslookup redis; do sleep 3; done;"]
-      imagePullSecrets: {{}}
-      volumes: {{}}
+      imagePullSecrets: []
+      volumes: []
       containers:
       - name: worker
         image: "{image}"
         command:
-        envFrom: {{}}
+        envFrom: []
         env:
         - name: CONTAINER_PURPOSE
           value: "{purpose}"
-        volumeMounts: {{}}
+        volumeMounts: []
         imagePullPolicy: Always
         resources:
           requests:

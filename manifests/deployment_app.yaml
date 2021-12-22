@@ -16,16 +16,16 @@ spec:
       labels:
         role: app
     spec:
-      imagePullSecrets: {{}}
-      volumes: {{}}
+      imagePullSecrets: []
+      volumes: []
       containers:
       - name: app
         image: "{image}"
-        envFrom: {{}}
+        envFrom: []
         env:
         - name: CONTAINER_PURPOSE
           value: "{purpose}"
-        volumeMounts: {{}}
+        volumeMounts: []
         ports:
         - containerPort: {app_port}
         livenessProbe: {{}}
