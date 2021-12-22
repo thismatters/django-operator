@@ -124,6 +124,7 @@ class IngressService(BaseService):
     api_klass = "NetworkingV1Api"
 
 
+# deprecated!
 class JobService(BaseService):
     read_method = "read_namespaced_job"
     delete_method = "delete_namespaced_job"
@@ -137,4 +138,6 @@ class PodService(BaseService):
 
     read_method = "read_namespaced_pod"
     delete_method = "delete_namespaced_pod"
+    patch_method = "patch_namespaced_pod"
+    post_method = "create_namespaced_pod"
     read_status_method = "read_namespaced_pod_status"
