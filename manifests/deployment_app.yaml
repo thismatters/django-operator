@@ -15,6 +15,7 @@ spec:
     metadata:
       labels:
         role: app
+        version: "{version}"
     spec:
       imagePullSecrets: []
       volumes: []
