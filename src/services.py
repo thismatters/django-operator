@@ -3,6 +3,7 @@ from pathlib import Path
 import kopf
 import kubernetes
 import yaml
+from kubernetes.client.exceptions import ApiException
 
 from utils import merge, superget
 
@@ -72,10 +73,14 @@ class BaseService:
         kopf.adopt(_body, owner=parent)
         if not existing:
             # look for an existing resource anyway
-            _obj = self._read(
-                namespace=namespace, name=superget(_body, "metadata.name")
-            )
-            existing = _obj.metadata.name
+            try:
+                _obj = self._read(
+                    namespace=namespace, name=superget(_body, "metadata.name")
+                )
+            except ApiException:
+                pass
+            else:
+                existing = _obj.metadata.name
         # post/patch template
         if existing:
             if delete:
