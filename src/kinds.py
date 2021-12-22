@@ -157,9 +157,10 @@ class DjangoKind:
         )
 
     def _deployment_names(self, *, purpose, status, base_kwargs):
-        existing_deployment = (
-            superget(status, f"created.deployment.{purpose}", default=""),
+        existing_deployment = superget(
+            status, f"created.deployment.{purpose}", default=""
         )
+
         # see if the version changed
         if existing_deployment.endswith(base_kwargs.get("version")):
             former_deployment = None
