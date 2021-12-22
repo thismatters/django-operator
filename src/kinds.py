@@ -328,6 +328,7 @@ class DjangoKind:
             "host": host,
             "cluster_issuer": cluster_issuer,
             "version": version,
+            "version_slug": version.replace(".", "-"),
             "image": image,
             "redis_port": superget(spec, "ports.redis", default=6379),
             "app_port": superget(spec, "ports.app", default=8000),

@@ -4,7 +4,7 @@ metadata:
   labels:
     role: app
     version: "{version}"
-  name: "app-{version}"
+  name: "app-{version_slug}"
 spec:
   replicas: {app_replicas}
   selector:

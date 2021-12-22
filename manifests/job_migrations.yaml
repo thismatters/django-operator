@@ -1,11 +1,11 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: "migrations-{version}"
+  name: "migrations-{version_slug}"
 spec:
   template:
     metadata:
-      name: "migrations-{version}"
+      name: "migrations-{version_slug}"
     spec:
       initContainers: []
       containers:

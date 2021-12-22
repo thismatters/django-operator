@@ -4,7 +4,7 @@ metadata:
   labels:
     role: worker
     version: "{version}"
-  name: "worker-{version}"
+  name: "worker-{version_slug}"
 spec:
   replicas: {app_replicas}
   selector:
