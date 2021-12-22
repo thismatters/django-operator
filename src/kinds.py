@@ -139,11 +139,10 @@ class DjangoKind:
         # TODO: collect more ganular data about last migration applied for each app.
         #  store in status
 
-        # delete the job pod
+        # delete the job
         self._ensure(
-            kind="pod",
+            kind="job",
             purpose="migrations",
-            existing=f"migrations-{base_kwargs.get('version')}",
             delete=True,
             **base_kwargs,
         )
