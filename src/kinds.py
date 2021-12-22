@@ -117,7 +117,7 @@ class DjangoKind:
         try:
             completed_phase = await self._until_pod_completes(
                 namespace=base_kwargs.get("namespace"),
-                name=f"migrations-{base_kwargs.get('version')}",
+                name=f"migrations-{base_kwargs.get('version_slug')}",
             )
         except WaitedTooLongException:
             # problem
