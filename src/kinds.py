@@ -37,9 +37,7 @@ class DjangoKind:
         return {kind: {purpose: obj.metadata.name}}
 
     def _pod_phase(self, namespace, name):
-        pod = PodService(logger=self.logger).read_status(
-            namespace=namespace, name=name
-        )
+        pod = PodService(logger=self.logger).read_status(namespace=namespace, name=name)
         return pod.status.phase
 
     async def _until_pod_completes(self, *, period=6.0, iterations=20, **pod_kwargs):
@@ -224,7 +222,9 @@ class DjangoKind:
                                     f"missing {purpose} command"
                                 ),
                             ),
-                            "args": superget(spec, f"commands.{purpose}.args", []),
+                            "args": superget(
+                                spec, f"commands.{purpose}.args", default=[]
+                            ),
                             "env": spec.get("env", {}),
                             "envFrom": env_from,
                             "volumeMounts": spec.get("volumeMounts", []),
