@@ -21,9 +21,12 @@ class DjangoKind:
         "pod": PodService,
     }
 
+    def __init__(self, *, logger):
+        self.logger = logger
+
     def _ensure(self, namespace, body, kind, purpose, delete=False, **kwargs):
         kind_service_class = self.kind_services[kind]
-        obj = kind_service_class().ensure(
+        obj = kind_service_class(logger=self.logger).ensure(
             namespace=namespace,
             template=f"{kind}_{purpose}.yaml",
             parent=body,
@@ -321,7 +324,7 @@ class DjangoKind:
             kopf.exception(body, reason="ConfigError", message="")
             raise kopf.PermanentError("Spec missing required field")
 
-        logger.info(f"Migrating from {status.get('version', 'new')} to {version}")
+        self.logger.info(f"Migrating from {status.get('version', 'new')} to {version}")
 
         image = f"{_image}:{version}"
         ret = {
@@ -357,10 +360,10 @@ class DjangoKind:
 
         # create redis deployment (this is static, so
         #   not going to worry about green-blue)
-        logger.info("Setting redis deployment")
+        self.logger.info("Setting redis deployment")
         ret.update(self.ensure_redis(status=status, base_kwargs=_base))
 
-        logger.info("Beginning management commands")
+        self.logger.info("Beginning management commands")
         # create ephemeral job for for `initManageCommands`
         manage_commands = spec.get("initManageCommands", [])
         if manage_commands:
@@ -372,7 +375,7 @@ class DjangoKind:
                 base_kwargs=_base,
             )
 
-        logger.info("Setting up green app deployment")
+        self.logger.info("Setting up green app deployment")
         # bring up the green app deployment
         ret.update(
             await self.ensure_green_app(
@@ -384,7 +387,7 @@ class DjangoKind:
             )
         )
 
-        logger.info("Setting up green worker deployment")
+        self.logger.info("Setting up green worker deployment")
         # bring up new worker and dismiss old one
         ret.update(
             self.ensure_worker(
@@ -394,7 +397,7 @@ class DjangoKind:
             )
         )
 
-        logger.info("Setting up green beat deployment")
+        self.logger.info("Setting up green beat deployment")
         # bring up new beat and dismiss old one
         ret.update(
             self.ensure_beat(
@@ -404,11 +407,11 @@ class DjangoKind:
             )
         )
 
-        logger.info("Migrating service to green app deployment")
+        self.logger.info("Migrating service to green app deployment")
         # update app service selector, create ingress
         ret.update(self.migrate_service(base_kwargs=_base))
 
-        logger.info("Removing blue app deployment")
+        self.logger.info("Removing blue app deployment")
         # bring down the blue app deployment
         self.delete_blue_app(status=status, base_kwargs=_base)
 
@@ -417,7 +420,7 @@ class DjangoKind:
         patch.status["version"] = version
         patch.status["replicas"]["app"] = _base["app_replicas"]
         patch.status["replicas"]["worker"] = _base["worker_replicas"]
-        logger.info("Migration complete. All that was green is now blue")
+        self.logger.info("Migration complete. All that was green is now blue")
         kopf.info(body, reason="Ready", message="New config running")
         return ret
 

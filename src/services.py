@@ -16,14 +16,19 @@ class BaseService:
     read_status_method = None
     api_klass = "CoreV1Api"
 
-    def __init__(self):
+    def __init__(self, *, logger):
+        self.logger = logger
         self.client = getattr(kubernetes.client, self.api_klass)()
 
     def __transact(self, method_name, **kwargs):
         if method_name is None:
             raise NotImplementedError
         _method = getattr(self.client, method_name)
-        obj = _method(**kwargs)
+        try:
+            obj = _method(**kwargs)
+        except ApiException:
+            self.logger.debug(kwargs.get("body", "no body"))
+            raise
         return obj
 
     def _patch(self, **kwargs):

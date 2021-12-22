@@ -8,8 +8,8 @@ from kinds import DjangoKind
 
 @kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
-async def created(**kwargs):
-    return await DjangoKind().update_or_create(**kwargs)
+async def created(logger, **kwargs):
+    return await DjangoKind(logger=logger).update_or_create(**kwargs)
 
 
 # @kopf.on.timer("thismatters.net", "v1alpha", "djangos", interval=30)
