@@ -46,24 +46,16 @@ class UtilsTestCase(TestCase):
                 "initContainers": [],
             }
         }
-        extension = {
-            "spec": {
-                "imagePullSecrets": [{
-                    "name": "test-value"
-                }]
-            }
-        }
+        extension = {"spec": {"imagePullSecrets": [{"name": "test-value"}]}}
         merge(target, extension)
         self.assertEqual(
             target,
             {
                 "spec": {
                     "initContainers": [],
-                    "imagePullSecrets": [{
-                        "name": "test-value"
-                    }],
+                    "imagePullSecrets": [{"name": "test-value"}],
                 }
-            }
+            },
         )
 
     def test_slugify(self):

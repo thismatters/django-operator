@@ -37,7 +37,9 @@ class DjangoKind:
         return {kind: {purpose: obj.metadata.name}}
 
     def _pod_phase(self, namespace, name):
-        status = PodService().read_status(namespace=namespace, name=name)
+        status = PodService(logger=self.logger).read_status(
+            namespace=namespace, name=name
+        )
         return status.phase
 
     async def _until_pod_completes(self, *, period=6.0, iterations=20, **pod_kwargs):
@@ -52,7 +54,9 @@ class DjangoKind:
             return phase
 
     def _pod_reached_condition(self, *, namespace, name, condition):
-        status = PodService().read_status(namespace=namespace, name=name)
+        status = PodService(logger=self.logger).read_status(
+            namespace=namespace, name=name
+        )
         for _condition in status.conditions:
             if _condition.type == condition:
                 return _condition.status == "True"
