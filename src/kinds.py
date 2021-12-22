@@ -286,7 +286,7 @@ class DjangoKind:
         )
 
         # create Ingress
-        _, common_name = base_kwargs.get("host").rsplit(".", maxsplit=1)
+        _, common_name = base_kwargs.get("host").split(".", maxsplit=1)
         ret.update(
             self._ensure(
                 kind="ingress", purpose="app", common_name=common_name, **base_kwargs

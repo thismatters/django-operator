@@ -4,7 +4,7 @@ class WaitedTooLongException(Exception):
 
 def superget(dct, superkey, *, default=None, _raise=None):
     if "." in superkey:
-        key, remainder = superkey.rsplit(".", maxsplit=1)
+        key, remainder = superkey.split(".", maxsplit=1)
     else:
         key = superkey
         remainder = None
@@ -84,3 +84,5 @@ if __name__ == "__main__":
         },
     )
     print(orig)
+
+    print(superget(orig, "b.c.d"))
