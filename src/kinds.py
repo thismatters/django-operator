@@ -110,6 +110,8 @@ class DjangoKind:
                 "initContainers": enriched_commands,
             }
         }
+        self.logger.info(enrichments)
+
         _pod = self._ensure(
             kind="pod",
             purpose="migrations",

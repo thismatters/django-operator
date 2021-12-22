@@ -16,7 +16,7 @@ spec:
   ports:
     app: 8000
     redis: 6379
-  env: {}
+  env: []
   envFromConfigMapRefs:
   - env
   envFromSecretRefs:

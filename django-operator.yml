@@ -55,9 +55,14 @@ spec:
                       format: int32
                       default: 6379
                 env:
-                  additionalProperties:
-                    type: string
-                  type: object
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      value:
+                        type: string
                 envFromConfigMapRefs:
                   items:
                     type: string
