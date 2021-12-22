@@ -9,15 +9,19 @@ from utils import merge, superget
 
 
 class BaseService:
+    read_method = None
     delete_method = None
     patch_method = None
     post_method = None
+    read_status_method = None
     api_klass = "CoreV1Api"
 
     def __init__(self):
         self.client = getattr(kubernetes.client, self.api_klass)()
 
     def __transact(self, method_name, **kwargs):
+        if method_name is None:
+            raise NotImplementedError
         _method = getattr(self.client, method_name)
         obj = _method(**kwargs)
         return obj
@@ -33,6 +37,9 @@ class BaseService:
 
     def _delete(self, **kwargs):
         return self.__transact(self.delete_method, **kwargs)
+
+    def read_status(self, **kwargs):
+        return self.__transact(self.read_status_method, **kwargs)
 
     def _render_manifest(self, *, template, **kwargs):
         _template = Path("manifests") / template
@@ -131,6 +138,3 @@ class PodService(BaseService):
     read_method = "read_namespaced_pod"
     delete_method = "delete_namespaced_pod"
     read_status_method = "read_namespaced_pod_status"
-
-    def read_status(self, **kwargs):
-        return self.__transact(self.read_status_method, **kwargs)
