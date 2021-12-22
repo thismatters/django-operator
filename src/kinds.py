@@ -123,7 +123,7 @@ class DjangoKind:
         try:
             completed_phase = await self._until_pod_completes(
                 namespace=base_kwargs.get("namespace"),
-                name=_pod.metadata.name,
+                name=superget(_pod, "metadata.name"),
             )
         except WaitedTooLongException:
             # problem
@@ -149,7 +149,7 @@ class DjangoKind:
         self._ensure(
             kind="pod",
             purpose="migrations",
-            existing=_pod.metadata.name,
+            existing=superget(_pod, "metadata.name"),
             delete=True,
             **base_kwargs,
         )
