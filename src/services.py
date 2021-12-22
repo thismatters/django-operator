@@ -13,8 +13,7 @@ class BaseService:
     post_method = None
     api_klass = "CoreV1Api"
 
-    def __init__(self, *, logger):
-        self.logger = logger
+    def __init__(self):
         self.client = getattr(kubernetes.client, self.api_klass)()
 
     def __transact(self, method_name, **kwargs):
