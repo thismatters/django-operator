@@ -13,4 +13,4 @@ ADD ./manifests /op/manifests
 RUN adduser -D worker -u 1000
 USER worker
 
-CMD kopf run src/django.py --verbose
+CMD kopf run --all-namespaces src/django.py --verbose

@@ -4,7 +4,7 @@ import kopf
 import kubernetes
 import yaml
 
-from utils import merge
+from utils import merge, superget
 
 
 class BaseService:
@@ -23,6 +23,9 @@ class BaseService:
 
     def _patch(self, **kwargs):
         return self.__transact(self.patch_method, **kwargs)
+
+    def _read(self, **kwargs):
+        return self.__transact(self.read_method, **kwargs)
 
     def _post(self, **kwargs):
         return self.__transact(self.post_method, **kwargs)
@@ -66,6 +69,11 @@ class BaseService:
             else:
                 raise Exception("wtf")  # config error
             _body = self._enrich_manifest(body=_body, enrichments=enrichments)
+        kopf.adopt(_body, owner=parent)
+        if not existing:
+            # look for an existing resource anyway
+            _obj = self._read(namespace, name=superget(_body, "metadata.name"))
+            existing = superget(_obj, "metadata.name")
         # post/patch template
         if existing:
             if delete:
@@ -74,13 +82,13 @@ class BaseService:
                 # do patch
                 obj = self._patch(namespace=namespace, name=existing, body=_body)
         elif not delete:
-            kopf.adopt(_body, owner=parent)
             # do post
             obj = self._post(namespace=namespace, body=_body)
         return obj
 
 
 class DeploymentService(BaseService):
+    read_method = "read_namespaced_deployment"
     delete_method = "delete_namespaced_deployment"
     patch_method = "patch_namespaced_deployment"
     post_method = "create_namespaced_deployment"
@@ -88,12 +96,14 @@ class DeploymentService(BaseService):
 
 
 class ServiceService(BaseService):
+    read_method = "read_namespaced_service"
     delete_method = "delete_namespaced_service"
     patch_method = "patch_namespaced_service"
     post_method = "create_namespaced_service"
 
 
 class IngressService(BaseService):
+    read_method = "read_namespaced_ingress"
     delete_method = "delete_namespaced_ingress"
     patch_method = "patch_namespaced_ingress"
     post_method = "create_namespaced_ingress"
@@ -101,6 +111,7 @@ class IngressService(BaseService):
 
 
 class JobService(BaseService):
+    read_method = "read_namespaced_job"
     delete_method = "delete_namespaced_job"
     patch_method = "patch_namespaced_job"
     post_method = "create_namespaced_job"
@@ -110,6 +121,7 @@ class JobService(BaseService):
 class PodService(BaseService):
     """Now _this_ is what I call pod servicing!"""
 
+    read_method = "read_namespaced_pod"
     delete_method = "delete_namespaced_pod"
     read_status_method = "read_namespaced_pod_status"
 
