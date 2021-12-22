@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from ..utils import merge, superget
+from ..utils import merge, slugify, superget
 
 
 class UtilsTestCase(TestCase):
@@ -39,3 +39,7 @@ class UtilsTestCase(TestCase):
                 "h": "q",
             },
         )
+
+    def test_slugify(self):
+        unslug = "bu.nch_of1  OTHEr__shit"
+        self.assertEqual(slugify(unslug), "bu-nch-of1-other-shit")

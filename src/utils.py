@@ -1,3 +1,6 @@
+import re
+
+
 class WaitedTooLongException(Exception):
     pass
 
@@ -44,6 +47,10 @@ def merge(left, right):
         else:
             # primitive type, probably not a pointer
             left[key_] = value_
+
+
+def slugify(unslug):
+    return re.sub("[^-a-z0-9]+", "-", unslug.lower())
 
 
 class MergeDict(dict):

@@ -9,7 +9,7 @@ from services import (
     PodService,
     ServiceService,
 )
-from utils import WaitedTooLongException, superget
+from utils import WaitedTooLongException, slugify, superget
 
 
 class DjangoKind:
@@ -91,7 +91,7 @@ class DjangoKind:
             _manage_command = "-".join(manage_command)
             enriched_commands.append(
                 {
-                    "name": _manage_command,
+                    "name": slugify(_manage_command),
                     "image": base_kwargs.get("image"),
                     "command": ["python", "manage.py"] + manage_command,
                 }
@@ -328,7 +328,7 @@ class DjangoKind:
             "host": host,
             "cluster_issuer": cluster_issuer,
             "version": version,
-            "version_slug": version.replace(".", "-"),
+            "version_slug": slugify(version),
             "image": image,
             "redis_port": superget(spec, "ports.redis", default=6379),
             "app_port": superget(spec, "ports.app", default=8000),
