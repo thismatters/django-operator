@@ -51,7 +51,7 @@ class DjangoKind:
             await asyncio.sleep(period)
             return phase
 
-    def _pod_reached_condition(self, *, namespace, name, condition):
+    def _deployment_reached_condition(self, *, namespace, name, condition):
         status = PodService(logger=self.logger).read_status(
             namespace=namespace, name=name
         )
@@ -59,12 +59,16 @@ class DjangoKind:
             if _condition.type == condition:
                 return _condition.status == "True"
 
-    async def _until_pod_ready(self, *, period=6.0, iterations=20, **pod_kwargs):
+    async def _until_deployment_available(
+        self, *, period=6.0, iterations=20, **pod_kwargs
+    ):
         _iterations = 0
-        while not self._pod_reached_condition(condition="ready", **pod_kwargs):
+        while not self._deployment_reached_condition(
+            condition="Available", **pod_kwargs
+        ):
             if _iterations > iterations:
                 raise WaitedTooLongException(
-                    f"Pod not ready after {iterations * period} seconds"
+                    f"Deployment not ready after {iterations * period} seconds"
                 )
             await asyncio.sleep(period)
 
@@ -253,7 +257,7 @@ class DjangoKind:
 
         # await status checks
         try:
-            await self._until_pod_ready(
+            await self._until_deployment_available(
                 namespace=base_kwargs.get("namespace"),
                 name=superget(ret, "deployment.app"),
             )

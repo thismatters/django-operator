@@ -118,6 +118,7 @@ class DeploymentService(BaseService):
     delete_method = "delete_namespaced_deployment"
     patch_method = "patch_namespaced_deployment"
     post_method = "create_namespaced_deployment"
+    read_status_method = "read_namespaced_deployment_status"
     api_klass = "AppsV1Api"
 
 
