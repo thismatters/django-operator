@@ -254,7 +254,7 @@ rules:
     verbs: [get, create, patch, watch, delete]
   - apiGroups: [batch]
     resources: [jobs]
-    verbs: [create]
+    verbs: [get, create]
   - apiGroups: [networking.k8s.io]
     resources: [ingresses]
     verbs: [get, create, patch]

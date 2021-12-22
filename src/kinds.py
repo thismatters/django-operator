@@ -84,7 +84,7 @@ class DjangoKind:
         return ret
 
     async def ensure_manage_commands(
-        self, *, manage_commands, body, patch, base_kwargs
+        self, *, manage_commands, spec, body, patch, base_kwargs
     ):
         enriched_commands = []
         for manage_command in manage_commands:
@@ -97,7 +97,14 @@ class DjangoKind:
                 }
             )
         enrichments = {
-            "spec": {"template": {"spec": {"initContainers": enriched_commands}}}
+            "spec": {
+                "template": {
+                    "spec": {
+                        "imagePullSecrets": spec.get("imagePullSecrets", []),
+                        "initContainers": enriched_commands,
+                    }
+                }
+            }
         }
         self._ensure(
             kind="job",
@@ -355,6 +362,7 @@ class DjangoKind:
         if manage_commands:
             await self.ensure_manage_commands(
                 manage_commands=manage_commands,
+                spec=spec,
                 patch=patch,
                 body=body,
                 base_kwargs=_base,
