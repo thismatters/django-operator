@@ -107,6 +107,15 @@ spec:
                     type: array
                     items:
                       type: string
+                initManageTimeouts:
+                  type: object
+                  properties:
+                    period:
+                      type: integer
+                      default: 12
+                    iterations:
+                      type: integer
+                      default: 20
                 commands:
                   type: object
                   properties:

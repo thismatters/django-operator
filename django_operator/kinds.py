@@ -42,7 +42,7 @@ class DjangoKind:
         pod = PodService(logger=self.logger).read_status(namespace=namespace, name=name)
         return pod.status.phase
 
-    async def _until_pod_completes(self, *, period=6.0, iterations=20, **pod_kwargs):
+    async def _until_pod_completes(self, *, period=12.0, iterations=20, **pod_kwargs):
         _iterations = 0
         _completed = ("succeeded", "failed", "unknown")
         while (phase := self._pod_phase(**pod_kwargs)) not in _completed:
@@ -99,7 +99,7 @@ class DjangoKind:
         return ret
 
     async def ensure_manage_commands(
-        self, *, manage_commands, spec, body, patch, base_kwargs
+        self, *, manage_commands, spec, body, patch, period, iterations, base_kwargs
     ):
         enriched_commands = []
         env_from = self._get_env_from(spec=spec)
@@ -136,6 +136,8 @@ class DjangoKind:
             completed_phase = await self._until_pod_completes(
                 namespace=base_kwargs.get("namespace"),
                 name=superget(_pod, "pod.migrations"),
+                period=period,
+                iterations=iterations,
             )
         except WaitedTooLongException:
             # problem
@@ -401,6 +403,8 @@ class DjangoKind:
                     patch=patch,
                     body=body,
                     base_kwargs=_base,
+                    period=superget(spec, "initManageTimeouts.period"),
+                    iterations=superget(spec, "initManageTimeouts.iterations"),
                 )
 
         self.logger.info("Setting up green app deployment")
