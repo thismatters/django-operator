@@ -40,7 +40,7 @@ class DjangoKind:
 
     def _pod_phase(self, namespace, name):
         pod = PodService(logger=self.logger).read_status(namespace=namespace, name=name)
-        return pod.status.phase
+        return pod.status.phase.lower()
 
     async def _until_pod_completes(self, *, period=12.0, iterations=20, **pod_kwargs):
         _iterations = 0
