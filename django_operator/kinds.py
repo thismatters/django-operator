@@ -50,8 +50,9 @@ class DjangoKind:
                 raise WaitedTooLongException(
                     f"Pod still running after {iterations * period} seconds"
                 )
+            _iterations += 1
             await asyncio.sleep(period)
-            return phase
+        return phase
 
     def _deployment_reached_condition(self, *, namespace, name, condition):
         deployment = DeploymentService(logger=self.logger).read_status(
@@ -63,6 +64,7 @@ class DjangoKind:
         for _condition in deployment.status.conditions:
             if _condition.type == condition:
                 return _condition.status == "True"
+        return False
 
     async def _until_deployment_available(
         self, *, period=6.0, iterations=20, **pod_kwargs
@@ -75,6 +77,7 @@ class DjangoKind:
                 raise WaitedTooLongException(
                     f"Deployment not ready after {iterations * period} seconds"
                 )
+            _iterations += 1
             await asyncio.sleep(period)
 
     def ensure_redis(self, *, status, base_kwargs):
@@ -195,6 +198,8 @@ class DjangoKind:
             existing=existing_deployment,
             **base_kwargs,
         )
+
+        current_deployment = ret["deployment"][purpose]
 
         # bring down the blue deployment
         if former_deployment and not skip_delete:
