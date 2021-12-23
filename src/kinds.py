@@ -162,17 +162,17 @@ class DjangoKind:
         )
 
     def _deployment_names(self, *, purpose, status, base_kwargs):
-        existing_deployment = superget(
+        existing = superget(
             status, f"created.deployment.{purpose}", default=""
         )
 
         # see if the version changed
-        if existing_deployment.endswith(base_kwargs.get("version")):
-            former_deployment = None
+        if existing and existing.endswith(base_kwargs.get("version")):
+            former = None
         else:
-            former_deployment = existing_deployment
-            existing_deployment = None
-        return former_deployment, existing_deployment
+            former = existing
+            existing = None
+        return former, existing
 
     def _migrate_deployment(
         self, *, purpose, status, enrichments, base_kwargs, skip_delete=False

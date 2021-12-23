@@ -19,6 +19,7 @@ class UtilsTestCase(TestCase):
         self.assertEqual(superget(haystack, "f"), "thirdneedle")
         self.assertEqual(superget(haystack, "a.b.e"), "otherneedle")
         self.assertEqual(superget(haystack, "a.b.c.d"), "needle")
+        self.assertEqual(superget(haystack, "n", default=""), "")
 
     def test_merge(self):
         target = {"a": 1, "b": {"c": {"d": [{}, {}]}}}
