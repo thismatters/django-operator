@@ -34,7 +34,9 @@ class DjangoKind:
             delete=delete,
             **kwargs,
         )
-        return {kind: {purpose: obj.metadata.name}}
+        if not delete:
+            return {kind: {purpose: obj.metadata.name}}
+        return {}
 
     def _pod_phase(self, namespace, name):
         pod = PodService(logger=self.logger).read_status(namespace=namespace, name=name)
