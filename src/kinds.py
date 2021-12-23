@@ -76,17 +76,13 @@ class DjangoKind:
             await asyncio.sleep(period)
 
     def ensure_redis(self, *, status, base_kwargs):
-        ret = {}
-        ret.update(
-            self._ensure(
-                kind="deployment",
-                purpose="redis",
-                existing=superget(status, "created.deployment.redis"),
-                **base_kwargs,
-            )
+        ret = self._ensure(
+            kind="deployment",
+            purpose="redis",
+            existing=superget(status, "created.deployment.redis"),
+            **base_kwargs,
         )
-        ret.update(
-            self._ensure(
+        merge(ret, self._ensure(
                 kind="service",
                 purpose="redis",
                 existing=superget(status, "created.service.redis"),
@@ -305,19 +301,15 @@ class DjangoKind:
         )
 
     def migrate_service(self, *, base_kwargs):
-        ret = {}
-        ret.update(
-            self._ensure(
-                kind="service",
-                purpose="app",
-                **base_kwargs,
-            )
+        ret = self._ensure(
+            kind="service",
+            purpose="app",
+            **base_kwargs,
         )
 
         # create Ingress
         _, common_name = base_kwargs.get("host").split(".", maxsplit=1)
-        ret.update(
-            self._ensure(
+        merge(ret, self._ensure(
                 kind="ingress", purpose="app", common_name=common_name, **base_kwargs
             )
         )
@@ -376,7 +368,7 @@ class DjangoKind:
         # create redis deployment (this is static, so
         #   not going to worry about green-blue)
         self.logger.info("Setting redis deployment")
-        ret.update(self.ensure_redis(status=status, base_kwargs=_base))
+        merge(ret, self.ensure_redis(status=status, base_kwargs=_base))
 
         if status.get("migrationVersion", "zero") == version:
             self.logger.info(
@@ -397,7 +389,7 @@ class DjangoKind:
 
         self.logger.info("Setting up green app deployment")
         # bring up the green app deployment
-        ret.update(
+        merge(ret,
             await self.ensure_green_app(
                 spec=spec,
                 patch=patch,
@@ -409,7 +401,7 @@ class DjangoKind:
 
         self.logger.info("Setting up green worker deployment")
         # bring up new worker and dismiss old one
-        ret.update(
+        merge(ret,
             self.ensure_worker(
                 spec=spec,
                 status=status,
@@ -419,7 +411,7 @@ class DjangoKind:
 
         self.logger.info("Setting up green beat deployment")
         # bring up new beat and dismiss old one
-        ret.update(
+        merge(ret,
             self.ensure_beat(
                 spec=spec,
                 status=status,
@@ -429,7 +421,7 @@ class DjangoKind:
 
         self.logger.info("Migrating service to green app deployment")
         # update app service selector, create ingress
-        ret.update(self.migrate_service(base_kwargs=_base))
+        merge(ret, self.migrate_service(base_kwargs=_base))
 
         self.logger.info("Removing blue app deployment")
         # bring down the blue app deployment

@@ -6,7 +6,7 @@ metadata:
     version: "{version}"
   name: "worker-{version_slug}"
 spec:
-  replicas: {app_replicas}
+  replicas: {worker_replicas}
   selector:
     matchLabels:
       role: worker

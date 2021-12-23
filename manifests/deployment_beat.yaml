@@ -6,7 +6,7 @@ metadata:
     version: "{version}"
   name: "beat-{version_slug}"
 spec:
-  replicas: {app_replicas}
+  replicas: 1
   selector:
     matchLabels:
       role: beat
