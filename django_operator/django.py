@@ -1,6 +1,6 @@
 import kopf
 
-from kinds import DjangoKind
+from django_operator.kinds import DjangoKind
 
 # The useful page
 # https://github.com/kubernetes-client/python/blob/master/kubernetes/README.md
