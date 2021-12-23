@@ -376,7 +376,7 @@ class DjangoKind:
         self.logger.info("Setting redis deployment")
         ret.update(self.ensure_redis(status=status, base_kwargs=_base))
 
-        if status["migrationVersion"] == version:
+        if status.get("migrationVersion", "zero") == version:
             self.logger.info(
                 f"Already migrated to version {version}, skipping management commands"
             )

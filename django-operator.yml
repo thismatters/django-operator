@@ -186,6 +186,9 @@ spec:
                       type: integer
                       format: int32
                       default: 3
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
 ---
 apiVersion: v1
 kind: Namespace
