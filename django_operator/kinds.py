@@ -2,14 +2,14 @@ import asyncio
 
 import kopf
 
-from services import (
+from django_operator.services import (
     DeploymentService,
     IngressService,
     JobService,
     PodService,
     ServiceService,
 )
-from utils import WaitedTooLongException, merge, slugify, superget
+from django_operator.utils import WaitedTooLongException, merge, slugify, superget
 
 
 class DjangoKind:

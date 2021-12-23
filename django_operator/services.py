@@ -5,7 +5,7 @@ import kubernetes
 import yaml
 from kubernetes.client.exceptions import ApiException, ApiValueError
 
-from utils import merge, superget
+from django_operator.utils import merge, superget
 
 
 class BaseService:

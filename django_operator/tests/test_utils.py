@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from ..utils import merge, slugify, superget
+from django_operator.utils import merge, slugify, superget
 
 
 class UtilsTestCase(TestCase):
