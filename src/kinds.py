@@ -366,6 +366,7 @@ class DjangoKind:
                 default=superget(spec, "replicas.worker", default=1),
             ),
         }
+        self.logger.debug(f"Base kwargs: {_base}")
 
         # create redis deployment (this is static, so
         #   not going to worry about green-blue)
