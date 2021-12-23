@@ -58,6 +58,8 @@ class DjangoKind:
             namespace=namespace, name=name
         )
         self.logger.debug(f"deployment conditions: {deployment.status.conditions}")
+        if deployment.status.conditions is None:
+            return False
         for _condition in deployment.status.conditions:
             if _condition.type == condition:
                 return _condition.status == "True"
@@ -448,6 +450,7 @@ class DjangoKind:
         }
         self.logger.info("Migration complete. All that was green is now blue")
         kopf.info(body, reason="Ready", message="New config running")
+        patch.status["created"] = ret
         return ret
 
     def scale_deployment(

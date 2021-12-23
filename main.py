@@ -8,7 +8,7 @@ from django_operator.kinds import DjangoKind
 
 @kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
-async def created(logger, **kwargs):
+async def create_handler(logger, **kwargs):
     return await DjangoKind(logger=logger).update_or_create(**kwargs)
 
 
