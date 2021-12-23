@@ -12,192 +12,204 @@ spec:
     plural: djangos
     singular: django
   versions:
-    - name: v1alpha
-      served: true
-      storage: true
-      schema:
-        openAPIV3Schema:
-          type: object
-          properties:
-            spec:
-              type: object
-              properties:
-                host:
-                  type: string
-                image:
-                  type: string
-                version:
-                  type: string
-                clusterIssuer:
-                  type: string
-                replicas:
+  - name: v1alpha
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              host:
+                type: string
+              image:
+                type: string
+              version:
+                type: string
+              clusterIssuer:
+                type: string
+              replicas:
+                type: object
+                properties:
+                  app:
+                    type: integer
+                    format: int32
+                    minimum: 1
+                    default: 1
+                  worker:
+                    type: integer
+                    format: int32
+                    minimum: 1
+                    default: 1
+              ports:
+                type: object
+                properties:
+                  app:
+                    type: integer
+                    format: int32
+                    default: 8000
+                  redis:
+                    type: integer
+                    format: int32
+                    default: 6379
+              env:
+                type: array
+                items:
                   type: object
                   properties:
-                    app:
-                      type: integer
-                      format: int32
-                      minimum: 1
-                      default: 1
-                    worker:
-                      type: integer
-                      format: int32
-                      minimum: 1
-                      default: 1
-                ports:
-                  type: object
-                  properties:
-                    app:
-                      type: integer
-                      format: int32
-                      default: 8000
-                    redis:
-                      type: integer
-                      format: int32
-                      default: 6379
-                env:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      name:
-                        type: string
-                      value:
-                        type: string
-                envFromConfigMapRefs:
-                  items:
-                    type: string
-                  type: array
-                envFromSecretRefs:
-                  items:
-                    type: string
-                  type: array
-                imagePullSecrets:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      name:
-                        type: string
-                volumes:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      name:
-                        type: string
-                      secret:
-                        type: object
-                        properties:
-                          secretName:
-                            type: string
-                volumeMounts:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      name:
-                        type: string
-                      mountPath:
-                        type: string
-                      readOnly:
-                        type: boolean
-                initManageCommands:
-                  type: array
-                  items:
-                    type: array
-                    items:
+                    name:
                       type: string
-                initManageTimeouts:
+                    value:
+                      type: string
+              envFromConfigMapRefs:
+                items:
+                  type: string
+                type: array
+              envFromSecretRefs:
+                items:
+                  type: string
+                type: array
+              imagePullSecrets:
+                type: array
+                items:
                   type: object
                   properties:
-                    period:
-                      type: integer
-                      default: 12
-                    iterations:
-                      type: integer
-                      default: 20
-                commands:
+                    name:
+                      type: string
+              volumes:
+                type: array
+                items:
                   type: object
                   properties:
-                    app:
+                    name:
+                      type: string
+                    secret:
                       type: object
                       properties:
-                        command:
-                          type: array
-                          items:
-                            type: string
-                        args:
-                          type: array
-                          items:
-                            type: string
-                    worker:
-                      type: object
-                      properties:
-                        command:
-                          type: array
-                          items:
-                            type: string
-                        args:
-                          type: array
-                          items:
-                            type: string
-                    beat:
-                      type: object
-                      properties:
-                        command:
-                          type: array
-                          items:
-                            type: string
-                        args:
-                          type: array
-                          items:
-                            type: string
-                appProbeSpec:
-                  type: object
-                  properties:
-                    httpGet:
-                      type: object
-                      properties:
-                        scheme:
+                        secretName:
                           type: string
-                          default: HTTP
-                        path:
+              volumeMounts:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    mountPath:
+                      type: string
+                    readOnly:
+                      type: boolean
+              initManageCommands:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: string
+              initManageTimeouts:
+                type: object
+                properties:
+                  period:
+                    type: integer
+                    default: 12
+                  iterations:
+                    type: integer
+                    default: 20
+              commands:
+                type: object
+                properties:
+                  app:
+                    type: object
+                    properties:
+                      command:
+                        type: array
+                        items:
                           type: string
-                          default: /
-                        port:
-                          type: integer
-                          format: int32
-                          default: 8000
-                        httpHeaders:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              name:
-                                type: string
-                                value: string
-                              value:
-                                type: string
-                                value: string
-                    initialDelaySeconds:
-                      type: integer
-                      format: int32
-                      default: 30
-                    periodSeconds:
-                      type: integer
-                      format: int32
-                      default: 10
-                    timeoutSeconds:
-                      type: integer
-                      format: int32
-                      default: 1
-                    failureThreshold:
-                      type: integer
-                      format: int32
-                      default: 3
-            status:
-              type: object
-              x-kubernetes-preserve-unknown-fields: true
+                      args:
+                        type: array
+                        items:
+                          type: string
+                  worker:
+                    type: object
+                    properties:
+                      command:
+                        type: array
+                        items:
+                          type: string
+                      args:
+                        type: array
+                        items:
+                          type: string
+                  beat:
+                    type: object
+                    properties:
+                      command:
+                        type: array
+                        items:
+                          type: string
+                      args:
+                        type: array
+                        items:
+                          type: string
+              appProbeSpec:
+                type: object
+                properties:
+                  httpGet:
+                    type: object
+                    properties:
+                      scheme:
+                        type: string
+                        default: HTTP
+                      path:
+                        type: string
+                        default: /
+                      port:
+                        type: integer
+                        format: int32
+                        default: 8000
+                      httpHeaders:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              value: string
+                            value:
+                              type: string
+                              value: string
+                  initialDelaySeconds:
+                    type: integer
+                    format: int32
+                    default: 30
+                  periodSeconds:
+                    type: integer
+                    format: int32
+                    default: 10
+                  timeoutSeconds:
+                    type: integer
+                    format: int32
+                    default: 1
+                  failureThreshold:
+                    type: integer
+                    format: int32
+                    default: 3
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+    additionalPrinterColumns:
+    - name: Status
+      type: string
+      description: The status of the application
+      jsonPath: .status.condition
+    - name: Version
+      type: string
+      description: The version of the application
+      jsonPath: .status.version
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
 ---
 apiVersion: v1
 kind: Namespace

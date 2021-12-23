@@ -38,5 +38,5 @@ Takes some inspiration from [21h/django-operator](https://git.blindage.org/21h/d
 * [x] lint
 * [x] deploy to cluster (for testing)
 * [x] test (create a new namespace for testing, and use an arbitrary URL)
-* [] test updating (don't re-run migrations unless version changes)
+* [x] test updating (don't re-run migrations unless version changes )
 * [] deploy
