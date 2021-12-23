@@ -9,7 +9,7 @@ from services import (
     PodService,
     ServiceService,
 )
-from utils import WaitedTooLongException, slugify, superget
+from utils import WaitedTooLongException, merge, slugify, superget
 
 
 class DjangoKind:
@@ -82,12 +82,14 @@ class DjangoKind:
             existing=superget(status, "created.deployment.redis"),
             **base_kwargs,
         )
-        merge(ret, self._ensure(
+        merge(
+            ret,
+            self._ensure(
                 kind="service",
                 purpose="redis",
                 existing=superget(status, "created.service.redis"),
                 **base_kwargs,
-            )
+            ),
         )
         return ret
 
@@ -160,9 +162,7 @@ class DjangoKind:
         )
 
     def _deployment_names(self, *, purpose, status, base_kwargs):
-        existing = superget(
-            status, f"created.deployment.{purpose}", default=""
-        )
+        existing = superget(status, f"created.deployment.{purpose}", default="")
 
         # see if the version changed
         if existing and existing.endswith(base_kwargs.get("version")):
@@ -309,9 +309,11 @@ class DjangoKind:
 
         # create Ingress
         _, common_name = base_kwargs.get("host").split(".", maxsplit=1)
-        merge(ret, self._ensure(
+        merge(
+            ret,
+            self._ensure(
                 kind="ingress", purpose="app", common_name=common_name, **base_kwargs
-            )
+            ),
         )
         return ret
 
@@ -389,34 +391,37 @@ class DjangoKind:
 
         self.logger.info("Setting up green app deployment")
         # bring up the green app deployment
-        merge(ret,
+        merge(
+            ret,
             await self.ensure_green_app(
                 spec=spec,
                 patch=patch,
                 body=body,
                 status=status,
                 base_kwargs=_base,
-            )
+            ),
         )
 
         self.logger.info("Setting up green worker deployment")
         # bring up new worker and dismiss old one
-        merge(ret,
+        merge(
+            ret,
             self.ensure_worker(
                 spec=spec,
                 status=status,
                 base_kwargs=_base,
-            )
+            ),
         )
 
         self.logger.info("Setting up green beat deployment")
         # bring up new beat and dismiss old one
-        merge(ret,
+        merge(
+            ret,
             self.ensure_beat(
                 spec=spec,
                 status=status,
                 base_kwargs=_base,
-            )
+            ),
         )
 
         self.logger.info("Migrating service to green app deployment")
