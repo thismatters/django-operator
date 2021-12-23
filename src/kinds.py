@@ -376,17 +376,22 @@ class DjangoKind:
         self.logger.info("Setting redis deployment")
         ret.update(self.ensure_redis(status=status, base_kwargs=_base))
 
-        self.logger.info("Beginning management commands")
-        # create ephemeral job for for `initManageCommands`
-        manage_commands = spec.get("initManageCommands", [])
-        if manage_commands:
-            await self.ensure_manage_commands(
-                manage_commands=manage_commands,
-                spec=spec,
-                patch=patch,
-                body=body,
-                base_kwargs=_base,
+        if status["migrationVersion"] == version:
+            self.logger.info(
+                f"Already migrated to version {version}, skipping management commands"
             )
+        else:
+            self.logger.info("Beginning management commands")
+            # create ephemeral job for for `initManageCommands`
+            manage_commands = spec.get("initManageCommands", [])
+            if manage_commands:
+                await self.ensure_manage_commands(
+                    manage_commands=manage_commands,
+                    spec=spec,
+                    patch=patch,
+                    body=body,
+                    base_kwargs=_base,
+                )
 
         self.logger.info("Setting up green app deployment")
         # bring up the green app deployment

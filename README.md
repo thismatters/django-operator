@@ -36,6 +36,7 @@ Takes some inspiration from [21h/django-operator](https://git.blindage.org/21h/d
 * [] write delete code (shouldn't be much here really...)
 * [x] set up CI pipeline
 * [x] lint
-* [] deploy to cluster (for testing)
-* [] test (create a new namespace for testing, and use an arbitrary URL)
+* [x] deploy to cluster (for testing)
+* [x] test (create a new namespace for testing, and use an arbitrary URL)
+* [] test updating (don't re-run migrations unless version changes)
 * [] deploy
