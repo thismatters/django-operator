@@ -117,7 +117,7 @@ class DjangoKind:
                 "initContainers": enriched_commands,
             }
         }
-        self.logger.info(enrichments)
+        self.logger.debug(enrichments)
 
         _pod = self._ensure(
             kind="pod",
@@ -180,6 +180,10 @@ class DjangoKind:
             status=status,
             base_kwargs=base_kwargs,
         )
+        self.logger.debug(
+            f"migrate {purpose} => former = {former_deployment} :: "
+            f"existing = {existing_deployment} :: skip_delete = {skip_delete}"
+        )
 
         # bring up the green deployment
         ret = self._ensure(
@@ -192,6 +196,7 @@ class DjangoKind:
 
         # bring down the blue deployment
         if former_deployment and not skip_delete:
+            self.logger.debug(f"migrate {purpose} => doing delete")
             self._ensure(
                 kind="deployment",
                 purpose=purpose,
@@ -274,6 +279,7 @@ class DjangoKind:
         )
 
         if former_deployment:
+            self.logger.debug("migrate app => doing delete")
             self._ensure(
                 kind="deployment",
                 purpose="app",
