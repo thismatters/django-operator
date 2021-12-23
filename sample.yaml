@@ -1,4 +1,3 @@
----
 apiVersion: thismatters.github/v1alpha
 kind: Django
 metadata:
@@ -45,6 +44,9 @@ spec:
   - ["ensure_contract_pricing"]
   - ["initialize_payment_webhooks"]
   - ["loaddata", "money_positive/fixtures/us_states.json"]
+  initManageTimeouts:
+    period: 12
+    iterations: 20
   commands:
     app:
       command: ["gunicorn"]
