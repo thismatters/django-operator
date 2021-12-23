@@ -167,7 +167,7 @@ class DjangoKind:
         existing = superget(status, f"created.deployment.{purpose}", default="")
 
         # see if the version changed
-        if existing and existing.endswith(base_kwargs.get("version")):
+        if existing and existing.endswith(base_kwargs.get("version_slug")):
             former = None
         else:
             former = existing
