@@ -1,5 +1,7 @@
 # Django Operator
 
+**This is severely alpha software, so use it at your own risk. There is no warranty, etc. I am looking for someone willing to review/vet the code. If you're interested please reach out by creating an issue!**
+
 A [Kubernetes operator](https://github.com/cncf/tag-app-delivery/blob/main/operator-wg/whitepaper/Operator-WhitePaper_v1-0.md) for a Django stack including Celery, django-celery-beat, and redis.
 
 Provides a `Django` CRD which:
@@ -13,9 +15,14 @@ Provides a `Django` CRD which:
   * handles fixtures
   * handles initialization management commands
 
-
 Takes some inspiration from [21h/django-operator](https://git.blindage.org/21h/django-operator) which is presented as a freestanding operator written in `go`.
 
+Prior to use you will need to install the django operator onto your cluster with:
+```
+kubectl apply -f https://raw.githubusercontent.com/thismatters/django-operator/main/django-operator.yml
+```
+
+See [sample.yaml](sample.yaml) for a sample manifest for a django app.
 
 ## TODO:
 
@@ -39,4 +46,14 @@ Takes some inspiration from [21h/django-operator](https://git.blindage.org/21h/d
 * [x] deploy to cluster (for testing)
 * [x] test (create a new namespace for testing, and use an arbitrary URL)
 * [x] test updating (don't re-run migrations unless version changes )
-* [] deploy
+* [x] deploy
+
+### v0.1.0
+* [ ] unittests!
+* [ ] documentation for users
+* [ ] manage a database; to facilitate smoke-test deployments -- allow deployment to be defined in the django manifest
+* [ ] better logging
+
+### v0.2.0
+* [ ] allow other manifests (deployments, ingresses, services) to be set in django manifest.
+* [ ] incorporate metrics from metric server into autoscaling.

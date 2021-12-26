@@ -9,7 +9,13 @@ from django_operator.kinds import DjangoKind
 @kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
 async def create_handler(logger, **kwargs):
-    return await DjangoKind(logger=logger).update_or_create(**kwargs)
+    @kopf.subhandler()
+    def begin_migration(patch, **kwargs):
+        patch.status["condition"] = "migrating"
+
+    @kopf.subhandler()
+    def do_migration(logger, **kwargs)
+        return await DjangoKind(logger=logger).update_or_create(**kwargs)
 
 
 # @kopf.on.timer("thismatters.net", "v1alpha", "djangos", interval=30)
