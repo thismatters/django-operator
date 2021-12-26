@@ -101,6 +101,10 @@ spec:
                       type: string
                     readOnly:
                       type: boolean
+              alwaysRunMigrations:
+                type: boolean
+                description: Set true to ensure migrations run even when version didn't change
+                default: false
               initManageCommands:
                 type: array
                 items:

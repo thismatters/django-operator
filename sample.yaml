@@ -37,6 +37,7 @@ spec:
   - name: google-drive-client-secret
     mountPath: "/app/src/secret/"
     readOnly: true
+  alwaysRunMigrations: true
   initManageCommands:
   # these will run in an init container, migrate might get special treatment vis-a-vi rolling back
   - ["migrate"]

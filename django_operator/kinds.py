@@ -388,7 +388,8 @@ class DjangoKind:
         self.logger.info("Setting redis deployment")
         merge(ret, self.ensure_redis(status=status, base_kwargs=_base))
 
-        if status.get("migrationVersion", "zero") == version:
+        force_migrations = spec.get("alwaysRunMigrations")
+        if not force_migrations and status.get("migrationVersion", "zero") == version:
             self.logger.info(
                 f"Already migrated to version {version}, skipping management commands"
             )
