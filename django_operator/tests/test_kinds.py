@@ -6,12 +6,7 @@ from django_operator.kinds import DjangoKind
 class DjangoKindTestCase(TestCase):
     def test_deployment_names_new_version(self):
         status = {
-            "created": {
-                "deployment": {
-                    "app": "app-6-9-420",
-                    "beat": "beat-6.8.4"
-                }
-            }
+            "created": {"deployment": {"app": "app-6-9-420", "beat": "beat-6.8.4"}}
         }
         base_kwargs = {"version_slug": "6-9-421"}
         django_kind = DjangoKind(logger=None)
@@ -25,12 +20,7 @@ class DjangoKindTestCase(TestCase):
 
     def test_deployment_names_current_version(self):
         status = {
-            "created": {
-                "deployment": {
-                    "app": "app-6-9-420",
-                    "beat": "beat-6-8-4"
-                }
-            }
+            "created": {"deployment": {"app": "app-6-9-420", "beat": "beat-6-8-4"}}
         }
         base_kwargs = {"version_slug": "6-9-420"}
         django_kind = DjangoKind(logger=None)

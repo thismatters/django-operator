@@ -9,7 +9,12 @@ from django_operator.services import (
     PodService,
     ServiceService,
 )
-from django_operator.utils import WaitedTooLongException, merge, slugify, superget
+from django_operator.utils import (
+    WaitedTooLongException,
+    merge,
+    slugify,
+    superget,
+)
 
 
 class DjangoKind:
@@ -200,8 +205,6 @@ class DjangoKind:
             existing=existing_deployment,
             **base_kwargs,
         )
-
-        current_deployment = ret["deployment"][purpose]
 
         # bring down the blue deployment
         if former_deployment and not skip_delete:
