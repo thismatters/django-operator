@@ -40,7 +40,7 @@ def merge(left, right):
             continue
         _value = left[key_]
         if type(_value) != type(value_):
-            raise ValueError
+            raise ValueError(f"type mismatch for key {key_}")
         if isinstance(_value, (dict,)):
             _value = merge(_value, value_)
         elif isinstance(_value, (list,)):

@@ -3,9 +3,9 @@ from pathlib import Path
 import kopf
 import kubernetes
 import yaml
-from kubernetes.client.exceptions import ApiException
+from kubernetes.client.exceptions import ApiException, ApiValueError
 
-from utils import merge, superget
+from django_operator.utils import merge, superget
 
 
 class BaseService:
@@ -27,7 +27,10 @@ class BaseService:
         try:
             obj = _method(**kwargs)
         except ApiException:
-            self.logger.debug(kwargs.get("body", "no body"))
+            self.logger.debug(f"ApiException: {kwargs.get('body', 'no body')}")
+            raise
+        except ApiValueError:
+            self.logger.debug(f"ApiValueError: {kwargs}")
             raise
         return obj
 
@@ -56,7 +59,11 @@ class BaseService:
 
     def _enrich_manifest(self, *, body, enrichments):
         if enrichments:
-            merge(body, enrichments)
+            try:
+                merge(body, enrichments)
+            except ValueError as e:
+                self.logger.debug(f"merge failed: {e}")
+                raise
         return body
 
     def ensure(
@@ -82,7 +89,7 @@ class BaseService:
             else:
                 raise Exception("wtf")  # config error
             _body = self._enrich_manifest(body=_body, enrichments=enrichments)
-        kopf.adopt(_body, owner=parent)
+            kopf.adopt(_body, owner=parent)
         if not existing:
             # look for an existing resource anyway
             try:
@@ -111,6 +118,7 @@ class DeploymentService(BaseService):
     delete_method = "delete_namespaced_deployment"
     patch_method = "patch_namespaced_deployment"
     post_method = "create_namespaced_deployment"
+    read_status_method = "read_namespaced_deployment_status"
     api_klass = "AppsV1Api"
 
 

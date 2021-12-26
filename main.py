@@ -1,6 +1,6 @@
 import kopf
 
-from kinds import DjangoKind
+from django_operator.kinds import DjangoKind
 
 # The useful page
 # https://github.com/kubernetes-client/python/blob/master/kubernetes/README.md
@@ -8,7 +8,15 @@ from kinds import DjangoKind
 
 @kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
-async def created(logger, **kwargs):
+def begin_migration(patch, **kwargs):
+    """This feels like a little hack. All handlers will run, this one should
+    run quickly just to set the status."""
+    patch.status["condition"] = "migrating"
+
+
+@kopf.on.update("thismatters.github", "v1alpha", "djangos")
+@kopf.on.create("thismatters.github", "v1alpha", "djangos")
+async def create_handler(logger, **kwargs):
     return await DjangoKind(logger=logger).update_or_create(**kwargs)
 
 

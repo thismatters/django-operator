@@ -2,14 +2,19 @@ import asyncio
 
 import kopf
 
-from services import (
+from django_operator.services import (
     DeploymentService,
     IngressService,
     JobService,
     PodService,
     ServiceService,
 )
-from utils import WaitedTooLongException, slugify, superget
+from django_operator.utils import (
+    WaitedTooLongException,
+    merge,
+    slugify,
+    superget,
+)
 
 
 class DjangoKind:
@@ -34,13 +39,15 @@ class DjangoKind:
             delete=delete,
             **kwargs,
         )
-        return {kind: {purpose: obj.metadata.name}}
+        if not delete:
+            return {kind: {purpose: obj.metadata.name}}
+        return {}
 
     def _pod_phase(self, namespace, name):
-        status = PodService().read_status(namespace=namespace, name=name)
-        return status.phase
+        pod = PodService(logger=self.logger).read_status(namespace=namespace, name=name)
+        return pod.status.phase.lower()
 
-    async def _until_pod_completes(self, *, period=6.0, iterations=20, **pod_kwargs):
+    async def _until_pod_completes(self, *, period=12.0, iterations=20, **pod_kwargs):
         _iterations = 0
         _completed = ("succeeded", "failed", "unknown")
         while (phase := self._pod_phase(**pod_kwargs)) not in _completed:
@@ -48,46 +55,56 @@ class DjangoKind:
                 raise WaitedTooLongException(
                     f"Pod still running after {iterations * period} seconds"
                 )
+            _iterations += 1
             await asyncio.sleep(period)
-            return phase
+        return phase
 
-    def _pod_reached_condition(self, *, namespace, name, condition):
-        status = PodService().read_status(namespace=namespace, name=name)
-        for _condition in status.conditions:
+    def _deployment_reached_condition(self, *, namespace, name, condition):
+        deployment = DeploymentService(logger=self.logger).read_status(
+            namespace=namespace, name=name
+        )
+        self.logger.debug(f"deployment conditions: {deployment.status.conditions}")
+        if deployment.status.conditions is None:
+            return False
+        for _condition in deployment.status.conditions:
             if _condition.type == condition:
                 return _condition.status == "True"
+        return False
 
-    async def _until_pod_ready(self, *, period=6.0, iterations=20, **pod_kwargs):
+    async def _until_deployment_available(
+        self, *, period=6.0, iterations=20, **pod_kwargs
+    ):
         _iterations = 0
-        while not self._pod_reached_condition(condition="ready", **pod_kwargs):
+        while not self._deployment_reached_condition(
+            condition="Available", **pod_kwargs
+        ):
             if _iterations > iterations:
                 raise WaitedTooLongException(
-                    f"Pod not ready after {iterations * period} seconds"
+                    f"Deployment not ready after {iterations * period} seconds"
                 )
+            _iterations += 1
             await asyncio.sleep(period)
 
     def ensure_redis(self, *, status, base_kwargs):
-        ret = {}
-        ret.update(
-            self._ensure(
-                kind="deployment",
-                purpose="redis",
-                existing=superget(status, "created.deployment.redis"),
-                **base_kwargs,
-            )
+        ret = self._ensure(
+            kind="deployment",
+            purpose="redis",
+            existing=superget(status, "created.deployment.redis"),
+            **base_kwargs,
         )
-        ret.update(
+        merge(
+            ret,
             self._ensure(
                 kind="service",
                 purpose="redis",
                 existing=superget(status, "created.service.redis"),
                 **base_kwargs,
-            )
+            ),
         )
         return ret
 
     async def ensure_manage_commands(
-        self, *, manage_commands, spec, body, patch, base_kwargs
+        self, *, manage_commands, spec, body, patch, period, iterations, base_kwargs
     ):
         enriched_commands = []
         env_from = self._get_env_from(spec=spec)
@@ -110,7 +127,7 @@ class DjangoKind:
                 "initContainers": enriched_commands,
             }
         }
-        self.logger.info(enrichments)
+        self.logger.debug(enrichments)
 
         _pod = self._ensure(
             kind="pod",
@@ -123,7 +140,9 @@ class DjangoKind:
         try:
             completed_phase = await self._until_pod_completes(
                 namespace=base_kwargs.get("namespace"),
-                name=superget(_pod, "metadata.name"),
+                name=superget(_pod, "pod.migrations"),
+                period=period,
+                iterations=iterations,
             )
         except WaitedTooLongException:
             # problem
@@ -149,22 +168,21 @@ class DjangoKind:
         self._ensure(
             kind="pod",
             purpose="migrations",
-            existing=superget(_pod, "metadata.name"),
+            existing=superget(_pod, "pod.migrations"),
             delete=True,
             **base_kwargs,
         )
 
     def _deployment_names(self, *, purpose, status, base_kwargs):
-        existing_deployment = (
-            superget(status, f"created.deployment.{purpose}", default=""),
-        )
+        existing = superget(status, f"created.deployment.{purpose}", default="")
+
         # see if the version changed
-        if existing_deployment.endswith(base_kwargs.get("version")):
-            former_deployment = None
+        if existing and existing.endswith(base_kwargs.get("version_slug")):
+            former = None
         else:
-            former_deployment = existing_deployment
-            existing_deployment = None
-        return former_deployment, existing_deployment
+            former = existing
+            existing = None
+        return former, existing
 
     def _migrate_deployment(
         self, *, purpose, status, enrichments, base_kwargs, skip_delete=False
@@ -173,6 +191,10 @@ class DjangoKind:
             purpose=purpose,
             status=status,
             base_kwargs=base_kwargs,
+        )
+        self.logger.debug(
+            f"migrate {purpose} => former = {former_deployment} :: "
+            f"existing = {existing_deployment} :: skip_delete = {skip_delete}"
         )
 
         # bring up the green deployment
@@ -186,6 +208,7 @@ class DjangoKind:
 
         # bring down the blue deployment
         if former_deployment and not skip_delete:
+            self.logger.debug(f"migrate {purpose} => doing delete")
             self._ensure(
                 kind="deployment",
                 purpose=purpose,
@@ -220,8 +243,10 @@ class DjangoKind:
                                     f"missing {purpose} command"
                                 ),
                             ),
-                            "args": superget(spec, f"commands.{purpose}.args", []),
-                            "env": spec.get("env", {}),
+                            "args": superget(
+                                spec, f"commands.{purpose}.args", default=[]
+                            ),
+                            "env": spec.get("env", []),
                             "envFrom": env_from,
                             "volumeMounts": spec.get("volumeMounts", []),
                         },
@@ -248,7 +273,7 @@ class DjangoKind:
 
         # await status checks
         try:
-            await self._until_pod_ready(
+            await self._until_deployment_available(
                 namespace=base_kwargs.get("namespace"),
                 name=superget(ret, "deployment.app"),
             )
@@ -266,6 +291,7 @@ class DjangoKind:
         )
 
         if former_deployment:
+            self.logger.debug("migrate app => doing delete")
             self._ensure(
                 kind="deployment",
                 purpose="app",
@@ -293,21 +319,19 @@ class DjangoKind:
         )
 
     def migrate_service(self, *, base_kwargs):
-        ret = {}
-        ret.update(
-            self._ensure(
-                kind="service",
-                purpose="app",
-                **base_kwargs,
-            )
+        ret = self._ensure(
+            kind="service",
+            purpose="app",
+            **base_kwargs,
         )
 
         # create Ingress
         _, common_name = base_kwargs.get("host").split(".", maxsplit=1)
-        ret.update(
+        merge(
+            ret,
             self._ensure(
                 kind="ingress", purpose="app", common_name=common_name, **base_kwargs
-            )
+            ),
         )
         return ret
 
@@ -360,59 +384,71 @@ class DjangoKind:
                 default=superget(spec, "replicas.worker", default=1),
             ),
         }
+        self.logger.debug(f"Base kwargs: {_base}")
 
         # create redis deployment (this is static, so
         #   not going to worry about green-blue)
         self.logger.info("Setting redis deployment")
-        ret.update(self.ensure_redis(status=status, base_kwargs=_base))
+        merge(ret, self.ensure_redis(status=status, base_kwargs=_base))
 
-        self.logger.info("Beginning management commands")
-        # create ephemeral job for for `initManageCommands`
-        manage_commands = spec.get("initManageCommands", [])
-        if manage_commands:
-            await self.ensure_manage_commands(
-                manage_commands=manage_commands,
-                spec=spec,
-                patch=patch,
-                body=body,
-                base_kwargs=_base,
+        force_migrations = spec.get("alwaysRunMigrations")
+        if not force_migrations and status.get("migrationVersion", "zero") == version:
+            self.logger.info(
+                f"Already migrated to version {version}, skipping management commands"
             )
+        else:
+            self.logger.info("Beginning management commands")
+            # create ephemeral job for for `initManageCommands`
+            manage_commands = spec.get("initManageCommands", [])
+            if manage_commands:
+                await self.ensure_manage_commands(
+                    manage_commands=manage_commands,
+                    spec=spec,
+                    patch=patch,
+                    body=body,
+                    base_kwargs=_base,
+                    period=superget(spec, "initManageTimeouts.period"),
+                    iterations=superget(spec, "initManageTimeouts.iterations"),
+                )
 
         self.logger.info("Setting up green app deployment")
         # bring up the green app deployment
-        ret.update(
+        merge(
+            ret,
             await self.ensure_green_app(
                 spec=spec,
                 patch=patch,
                 body=body,
                 status=status,
                 base_kwargs=_base,
-            )
+            ),
         )
 
         self.logger.info("Setting up green worker deployment")
         # bring up new worker and dismiss old one
-        ret.update(
+        merge(
+            ret,
             self.ensure_worker(
                 spec=spec,
                 status=status,
                 base_kwargs=_base,
-            )
+            ),
         )
 
         self.logger.info("Setting up green beat deployment")
         # bring up new beat and dismiss old one
-        ret.update(
+        merge(
+            ret,
             self.ensure_beat(
                 spec=spec,
                 status=status,
                 base_kwargs=_base,
-            )
+            ),
         )
 
         self.logger.info("Migrating service to green app deployment")
         # update app service selector, create ingress
-        ret.update(self.migrate_service(base_kwargs=_base))
+        merge(ret, self.migrate_service(base_kwargs=_base))
 
         self.logger.info("Removing blue app deployment")
         # bring down the blue app deployment
@@ -421,10 +457,13 @@ class DjangoKind:
         # patch status
         patch.status["condition"] = "running"
         patch.status["version"] = version
-        patch.status["replicas"]["app"] = _base["app_replicas"]
-        patch.status["replicas"]["worker"] = _base["worker_replicas"]
+        patch.status["replicas"] = {
+            "app": _base["app_replicas"],
+            "worker": _base["worker_replicas"],
+        }
         self.logger.info("Migration complete. All that was green is now blue")
         kopf.info(body, reason="Ready", message="New config running")
+        patch.status["created"] = ret
         return ret
 
     def scale_deployment(

@@ -6,7 +6,7 @@ metadata:
     version: "{version}"
   name: "beat-{version_slug}"
 spec:
-  replicas: {app_replicas}
+  replicas: 1
   selector:
     matchLabels:
       role: beat
@@ -20,16 +20,16 @@ spec:
       - name: init-broker
         image: busybox:1.28.4
         command: ["sh", "-c", "until nslookup redis; do sleep 3; done;"]
-      imagePullSecrets: {{}}
-      volumes: {{}}
+      imagePullSecrets: []
+      volumes: []
       containers:
       - name: beat
         image: "{image}"
-        envFrom: {{}}
+        envFrom: []
         env:
         - name: CONTAINER_PURPOSE
           value: "{purpose}"
-        volumeMounts: {{}}
+        volumeMounts: []
         imagePullPolicy: Always
         resources:
           requests:

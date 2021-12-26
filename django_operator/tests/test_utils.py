@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from ..utils import merge, slugify, superget
+from django_operator.utils import merge, slugify, superget
 
 
 class UtilsTestCase(TestCase):
@@ -19,6 +19,7 @@ class UtilsTestCase(TestCase):
         self.assertEqual(superget(haystack, "f"), "thirdneedle")
         self.assertEqual(superget(haystack, "a.b.e"), "otherneedle")
         self.assertEqual(superget(haystack, "a.b.c.d"), "needle")
+        self.assertEqual(superget(haystack, "n", default=""), "")
 
     def test_merge(self):
         target = {"a": 1, "b": {"c": {"d": [{}, {}]}}}
@@ -46,24 +47,16 @@ class UtilsTestCase(TestCase):
                 "initContainers": [],
             }
         }
-        extension = {
-            "spec": {
-                "imagePullSecrets": [{
-                    "name": "test-value"
-                }]
-            }
-        }
+        extension = {"spec": {"imagePullSecrets": [{"name": "test-value"}]}}
         merge(target, extension)
         self.assertEqual(
             target,
             {
                 "spec": {
                     "initContainers": [],
-                    "imagePullSecrets": [{
-                        "name": "test-value"
-                    }],
+                    "imagePullSecrets": [{"name": "test-value"}],
                 }
-            }
+            },
         )
 
     def test_slugify(self):
