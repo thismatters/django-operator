@@ -6,18 +6,22 @@ from django_operator.kinds import DjangoKind
 # https://github.com/kubernetes-client/python/blob/master/kubernetes/README.md
 
 
-@kopf.on.update("thismatters.github", "v1alpha", "djangos")
-@kopf.on.create("thismatters.github", "v1alpha", "djangos")
 def begin_migration(patch, **kwargs):
-    """This feels like a little hack. All handlers will run, this one should
-    run quickly just to set the status."""
     patch.status["condition"] = "migrating"
 
+
+async def do_migration(logger, **kwargs)
+    return await DjangoKind(logger=logger).update_or_create(**kwargs)
 
 @kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
 async def create_handler(logger, **kwargs):
-    return await DjangoKind(logger=logger).update_or_create(**kwargs)
+    await kopf.execute(fns={
+        "begin": begin_migration,
+    })
+    await kopf.execute(fns={
+        "do": do_migration,
+    })
 
 
 # @kopf.on.timer("thismatters.net", "v1alpha", "djangos", interval=30)
