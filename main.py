@@ -10,8 +10,9 @@ def begin_migration(patch, **kwargs):
     patch.status["condition"] = "migrating"
 
 
-async def do_migration(logger, **kwargs)
+async def do_migration(logger, **kwargs):
     return await DjangoKind(logger=logger).update_or_create(**kwargs)
+
 
 @kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
