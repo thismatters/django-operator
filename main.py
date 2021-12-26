@@ -20,6 +20,17 @@ async def create_handler(logger, **kwargs):
     return await DjangoKind(logger=logger).update_or_create(**kwargs)
 
 
+"""Red -> green -> blue"""
+@kopf.on.update("thismatters.github", "v1alpha", "djangos", labels={"migration-state": "red"})
+def to_green(patch, **kwargs):
+    patch.metadata.["labels"]["migration-state"] = "green"
+
+
+@kopf.on.update("thismatters.github", "v1alpha", "djangos", labels={"migration-state": "green"})
+def to_blue(patch, **kwargs):
+    patch.metadata.["labels"]["migration-state"] = "blue"
+
+
 # @kopf.on.timer("thismatters.net", "v1alpha", "djangos", interval=30)
 # def scale_deployment(**kwargs):
 #     DjangoKind().scale_deployment(**kwargs)
