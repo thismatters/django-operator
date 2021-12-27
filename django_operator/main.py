@@ -13,11 +13,20 @@ def begin_migration(patch, body, **kwargs):
     patch.metadata.labels["migration-step"] = "starting"
 
 
-@kopf.on.update("thismatters.github", "v1alpha", "djangos", labels={"migration-step": "starting"})
+@kopf.on.update(
+    "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "starting"}
+)
 def start_management_commands(logger, patch, body, spec, status, namespace, **kwargs):
     """Start the redis cache and kick off management commands"""
-    django = DjangoKind(logger=logger, patch=patch, body=body, spec=spec, status=status, namespace=namespace,)
-    self.logger.info("Setting up redis deployment")
+    django = DjangoKind(
+        logger=logger,
+        patch=patch,
+        body=body,
+        spec=spec,
+        status=status,
+        namespace=namespace,
+    )
+    logger.info("Setting up redis deployment")
     patch.status["created"] = django.ensure_redis()
     force_migrations = spec.get("alwaysRunMigrations")
     mgmt_pod = None
@@ -33,23 +42,40 @@ def start_management_commands(logger, patch, body, spec, status, namespace, **kw
     return {"pod_name": mgmt_pod}
 
 
-@kopf.on.update("thismatters.github", "v1alpha", "djangos", labels={"migration-step": "mgmt-cmd"})
-def complete_management_commands(retries, logger, patch, body, spec, status, namespace, **kwargs):
+@kopf.on.update(
+    "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "mgmt-cmd"}
+)
+def complete_management_commands(
+    retries, logger, patch, body, spec, status, namespace, **kwargs
+):
     """Ensure the management commands have completed, clean up their pod"""
     max_retries = superget(spec, "initManageTimeouts.iterations")
     if retries > max_retries:
         patch.status["condition"] = "degraded"
-        raise kopf.PermanentError("Migrations took too long. Manual intervention required!")
-    django = DjangoKind(logger=logger, patch=patch, body=body, spec=spec, status=status, namespace=namespace,)
+        raise kopf.PermanentError(
+            "Migrations took too long. Manual intervention required!"
+        )
+    django = DjangoKind(
+        logger=logger,
+        patch=patch,
+        body=body,
+        spec=spec,
+        status=status,
+        namespace=namespace,
+    )
     pod_name = superget(status, "start_management_commands.pod_name")
     if pod_name:
         pod_phase = django.pod_phase(pod_name)
         if pod_phase in ("failed", "unknown"):
             patch.status["condition"] = "degraded"
-            raise kopf.PermanentError("Migrations have failed. Manual intervention required!")
+            raise kopf.PermanentError(
+                "Migrations have failed. Manual intervention required!"
+            )
         if pod_phase != "succeeded":
             period = superget(spec, "initManageTimeouts.period")
-            raise kopf.TemporaryError("The management commands have not completed. Waiting.", delay=period)
+            raise kopf.TemporaryError(
+                "The management commands have not completed. Waiting.", delay=period
+            )
         django.clean_manage_commands(pod_name=pod_name)
 
     patch.status["migrationVersion"] = django.version
@@ -59,14 +85,25 @@ def complete_management_commands(retries, logger, patch, body, spec, status, nam
     return {"blue_app": blue_app}
 
 
-@kopf.on.update("thismatters.github", "v1alpha", "djangos", labels={"migration-step": "green-app"})
+@kopf.on.update(
+    "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "green-app"}
+)
 def green_app_ready(retries, logger, patch, body, spec, status, namespace, **kwargs):
     """Ensure the green app has come up, complete process"""
     max_retries = 20
     if retries > max_retries:
         patch.status["condition"] = "degraded"
-        raise kopf.PermanentError("App not started in time. Manual intervention required!")
-    django = DjangoKind(logger=logger, patch=patch, body=body, spec=spec, status=status, namespace=namespace,)
+        raise kopf.PermanentError(
+            "App not started in time. Manual intervention required!"
+        )
+    django = DjangoKind(
+        logger=logger,
+        patch=patch,
+        body=body,
+        spec=spec,
+        status=status,
+        namespace=namespace,
+    )
     green = superget(status, "created.deployment.app")
     if not django.deployment_reached_condition(condition="Available", name=green):
         period = 6
