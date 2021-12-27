@@ -6,24 +6,46 @@ from django_operator.utils import merge, superget
 
 @kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
-def begin_migration(logger, patch, body, labels, diff, **kwargs):
+def begin_migration(logger, patch, body, labels, diff, spec, **kwargs):
     """Trigger the migration pipeline and update object to reflect migrating status"""
-    for action, field, *_ in diff:
-        if action == "change" and field == ("metadata", "labels", "migration-step"):
-            logger.debug("This change seems to be a migration step change. skipping")
-            return
-    if labels.get("migration-step", "ready") != "ready":
-        raise kopf.TemporaryError("Cannot start a new migration right now", delay=30)
+
+    # profile the incoming diff and squat on any changes apart from the
+    # `migration-step` change
+    migration_step_field = ("metadata", "labels", "migration-step")
+    real_changes = False
+
+    for _, field, old, new in diff:
+        if field != migration_step_field:
+            logger.debug(
+                f"Non migration-step field change :: {field} := {old} -> {new}"
+            )
+            if labels.get("migration-step", "ready") == "ready":
+                real_changes = True
+            else:
+                # my assumption here is that a relevant diff doesn't "time out"
+                #  of the queue when other handlers run
+                raise kopf.TemporaryError(
+                    "Cannot start a new migration right now", delay=30
+                )
+    if not real_changes:
+        logger.debug("Changes appear to only touch migration-step labels; skipping")
+        # this is here to test whether a `create` event comes with a diff
+        logger.debug(f"{diff}")
+        return
+
     kopf.info(body, reason="Migrating", message="Enacting new config")
     patch.status["condition"] = "migrating"
+    # collect _all_ the data needed for DjangoKind to run, store it in .status
+    patch.status["migrateToSpec"] = spec
     patch.metadata.labels["migration-step"] = "starting"
 
 
 @kopf.on.update(
     "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "starting"}
 )
-def start_management_commands(logger, patch, body, spec, status, namespace, **kwargs):
+def start_management_commands(logger, patch, body, status, namespace, **kwargs):
     """Start the redis cache and kick off management commands"""
+    spec = status.get("migrateToSpec")
     django = DjangoKind(
         logger=logger,
         patch=patch,
@@ -53,9 +75,10 @@ def start_management_commands(logger, patch, body, spec, status, namespace, **kw
     "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "mgmt-cmd"}
 )
 def complete_management_commands(
-    logger, patch, body, spec, status, namespace, retry, **kwargs
+    logger, patch, body, status, namespace, retry, **kwargs
 ):
     """Ensure the management commands have completed, clean up their pod"""
+    spec = status.get("migrateToSpec")
     max_retries = superget(spec, "initManageTimeouts.iterations")
     logger.debug(f"Retry count {retry}")
     if retry > max_retries:
@@ -100,8 +123,9 @@ def complete_management_commands(
 @kopf.on.update(
     "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "green-app"}
 )
-def green_app_ready(logger, patch, body, spec, status, namespace, retry, **kwargs):
+def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
     """Ensure the green app has come up, complete process"""
+    spec = status.get("migrateToSpec")
     max_retries = 20
     logger.debug(f"Retry count {retry}")
     if retry > max_retries:
@@ -140,6 +164,7 @@ def green_app_ready(logger, patch, body, spec, status, namespace, retry, **kwarg
     patch.status["created"] = created
     kopf.info(body, reason="Ready", message="New config running")
     logger.info("Migration complete. All that was green is now blue")
+    patch.status["migrateToSpec"] = None
     patch.metadata.labels["migration-step"] = "ready"
     return {"ready": True}
 
