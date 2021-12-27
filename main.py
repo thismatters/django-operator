@@ -52,6 +52,7 @@ def complete_management_commands(retries, logger, patch, body, spec, status, nam
             raise kopf.TemporaryError("The management commands have not completed. Waiting.", delay=period)
         django.clean_manage_commands(pod_name=pod_name)
 
+    patch.status["migrationVersion"] = django.version
     blue_app = superget(status, "created.deployment.app")
     logger.info("Setting up green app deployment")
     patch.status["created"] = django.start_green_app()
