@@ -4,6 +4,7 @@ from kubernetes.client.exceptions import ApiException
 from django_operator.kinds import DjangoKind
 from django_operator.utils import merge, superget
 
+
 @kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
 def begin_migration(logger, patch, body, labels, diff, spec, **kwargs):
@@ -36,7 +37,7 @@ def begin_migration(logger, patch, body, labels, diff, spec, **kwargs):
     kopf.info(body, reason="Migrating", message="Enacting new config")
     patch.status["condition"] = "migrating"
     # collect _all_ the data needed for DjangoKind to run, store it in .status
-    patch.status["migrateToSpec"] = spec
+    patch.status["migrateToSpec"] = dict(spec)
     patch.metadata.labels["migration-step"] = "starting"
 
 
