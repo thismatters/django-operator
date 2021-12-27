@@ -8,7 +8,11 @@ from django_operator.utils import merge, superget
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
 def begin_migration(patch, body, labels, diff, **kwargs):
     """Trigger the migration pipeline and update object to reflect migrating status"""
-    if labels["migration-step"] != "ready":
+    for action, field, vals in diff:
+        if action == "change" and field == ("metadata", "labels", "migration-step"):
+            logger.debug("This change seems to be a migration step change. skipping")
+            return
+    if labels.get("migration-step", "ready") != "ready":
         raise kopf.TemporaryError("Cannot start a new migration right now", delay=30)
     kopf.info(body, reason="Migrating", message="Enacting new config")
     patch.status["condition"] = "migrating"
