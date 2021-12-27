@@ -23,12 +23,12 @@ async def create_handler(logger, **kwargs):
 """Red -> green -> blue"""
 @kopf.on.update("thismatters.github", "v1alpha", "djangos", labels={"migration-state": "red"})
 def to_green(patch, **kwargs):
-    patch.meta["labels"]["migration-state"] = "green"
+    patch["metadata"]["labels"]["migration-state"] = "green"
 
 
 @kopf.on.update("thismatters.github", "v1alpha", "djangos", labels={"migration-state": "green"})
 def to_blue(patch, **kwargs):
-    patch.meta["labels"]["migration-state"] = "blue"
+    patch["metadata"]["labels"]["migration-state"] = "blue"
 
 
 # @kopf.on.timer("thismatters.net", "v1alpha", "djangos", interval=30)
