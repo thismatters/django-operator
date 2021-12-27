@@ -6,7 +6,7 @@ from django_operator.utils import merge, superget
 
 @kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
-def begin_migration(patch, **kwargs):
+def begin_migration(patch, body, **kwargs):
     """Trigger the migration pipeline and update object to reflect migrating status"""
     kopf.info(body, reason="Migrating", message="Enacting new config")
     patch.status["condition"] = "migrating"
