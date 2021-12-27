@@ -8,7 +8,7 @@ from django_operator.utils import merge, superget
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
 def begin_migration(patch, body, labels, diff, **kwargs):
     """Trigger the migration pipeline and update object to reflect migrating status"""
-    for action, field, vals in diff:
+    for action, field, *_ in diff:
         if action == "change" and field == ("metadata", "labels", "migration-step"):
             logger.debug("This change seems to be a migration step change. skipping")
             return
