@@ -6,8 +6,10 @@ from django_operator.utils import merge, superget
 
 @kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
-def begin_migration(patch, body, **kwargs):
+def begin_migration(patch, body, labels, diff, **kwargs):
     """Trigger the migration pipeline and update object to reflect migrating status"""
+    if labels["migration-step"] != "ready":
+        raise kopf.TemporaryError("Cannot start a new migration right now", delay=30)
     kopf.info(body, reason="Migrating", message="Enacting new config")
     patch.status["condition"] = "migrating"
     patch.metadata.labels["migration-step"] = "starting"
@@ -33,7 +35,8 @@ def start_management_commands(logger, patch, body, spec, status, namespace, **kw
     migration_version = status.get("migrationVersion", "zero")
     if not force_migrations and migration_version == django.version:
         logger.info(
-            f"Already migrated to version {django.version}, skipping management commands"
+            f"Already migrated to version {django.version}, skipping "
+            "management commands"
         )
     else:
         logger.info("Beginning management commands")
@@ -118,7 +121,7 @@ def green_app_ready(retries, logger, patch, body, spec, status, namespace, **kwa
     blue_app = superget(status, "complete_management_commands.blue_app")
     logger.info("Removing blue app deployment")
     django.clean_blue_app(blue_app=blue_app)
-    patch.metadata.labels["migration-step"] = "complete"
+    patch.metadata.labels["migration-step"] = "ready"
     patch.status["condition"] = "running"
     patch.status["version"] = django.version
     patch.status["replicas"] = {
