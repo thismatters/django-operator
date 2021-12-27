@@ -1,10 +1,6 @@
 import re
 
 
-class WaitedTooLongException(Exception):
-    pass
-
-
 def superget(dct, superkey, *, default=None, _raise=None):
     if "." in superkey:
         key, remainder = superkey.split(".", maxsplit=1)
@@ -52,45 +48,3 @@ def merge(left, right):
 
 def slugify(unslug):
     return re.sub("[^-a-z0-9]+", "-", unslug.lower())
-
-
-class MergeDict(dict):
-    # this can't handle editing dicts within lists, so I'm dumping it.
-    def __init__(self, **data):
-        super().__init__(**data)
-        for k, v in data.items():
-            if isinstance(v, (dict,)):
-                self[k] = self.__class__(**v)
-            else:
-                self[k] = v
-
-    def merge(self, other):
-        for key, value in other.items():
-            if key in self:
-                _value = self[key]
-                if isinstance(_value, (dict,)) and isinstance(value, (dict,)):
-                    self[key].merge(value)
-                elif type(_value) != type(value):
-                    raise ValueError
-                elif isinstance(value, (list,)):
-                    self[key].extend(value)
-                else:
-                    self[key] = value
-            else:
-                self.update({key: value})
-
-
-if __name__ == "__main__":
-    orig = {"a": 1, "b": {"c": {"d": [{}, {}]}}}
-    # _orig = MergeDict(**orig)
-    merge(
-        orig,
-        {
-            "a": 2,
-            "b": {"c": {"e": 3, ("d", 1): {"stuff": "second"}}, "l": "p"},
-            "h": "q",
-        },
-    )
-    print(orig)
-
-    print(superget(orig, "b.c.d"))

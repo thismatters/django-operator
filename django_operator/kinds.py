@@ -1,5 +1,3 @@
-import asyncio
-
 import kopf
 
 from django_operator.services import (
@@ -9,12 +7,7 @@ from django_operator.services import (
     PodService,
     ServiceService,
 )
-from django_operator.utils import (
-    WaitedTooLongException,
-    merge,
-    slugify,
-    superget,
-)
+from django_operator.utils import merge, slugify, superget
 
 
 class DjangoKind:
@@ -26,42 +19,76 @@ class DjangoKind:
         "pod": PodService,
     }
 
-    def __init__(self, *, logger):
+    def __init__(self, *, logger, patch, body, spec, status, namespace):
         self.logger = logger
+        try:
+            host = spec["host"]
+            cluster_issuer = spec["clusterIssuer"]
+            version = spec["version"]
+            _image = spec["image"]
+        except KeyError:
+            patch.status["condition"] = "degraded"
+            kopf.exception(body, reason="ConfigError", message="")
+            raise kopf.PermanentError("Spec missing required field")
 
-    def _ensure(self, namespace, body, kind, purpose, delete=False, **kwargs):
+        self.logger.info(f"Migrating from {status.get('version', 'new')} to {version}")
+
+        image = f"{_image}:{version}"
+        version_slug = slugify(version)
+        self.base_kwargs = {
+            "host": host,
+            "cluster_issuer": cluster_issuer,
+            "version": version,
+            "version_slug": version_slug,
+            "image": image,
+            "redis_port": superget(spec, "ports.redis", default=6379),
+            "app_port": superget(spec, "ports.app", default=8000),
+            "app_replicas": superget(
+                status,
+                "replicas.app",
+                default=superget(spec, "replicas.app", default=1),
+            ),
+            "worker_replicas": superget(
+                status,
+                "replicas.worker",
+                default=superget(spec, "replicas.worker", default=1),
+            ),
+        }
+        self.logger.debug(f"Base kwargs: {self.base_kwargs}")
+        self.namespace = namespace
+        self.host = host
+        self.image = image
+        self.version = version
+        self.version_slug = version_slug
+        self.patch = patch
+        self.body = body
+        self.spec = spec
+        self.status = status
+
+    def _ensure(self, kind, purpose, delete=False, **kwargs):
         kind_service_class = self.kind_services[kind]
         obj = kind_service_class(logger=self.logger).ensure(
-            namespace=namespace,
+            namespace=self.namespace,
             template=f"{kind}_{purpose}.yaml",
-            parent=body,
+            parent=self.body,
             purpose=purpose,
             delete=delete,
             **kwargs,
+            **self.base_kwargs,
         )
         if not delete:
             return {kind: {purpose: obj.metadata.name}}
         return {}
 
-    def _pod_phase(self, namespace, name):
-        pod = PodService(logger=self.logger).read_status(namespace=namespace, name=name)
+    def pod_phase(self, name):
+        pod = PodService(logger=self.logger).read_status(
+            namespace=self.namespace, name=name
+        )
         return pod.status.phase.lower()
 
-    async def _until_pod_completes(self, *, period=12.0, iterations=20, **pod_kwargs):
-        _iterations = 0
-        _completed = ("succeeded", "failed", "unknown")
-        while (phase := self._pod_phase(**pod_kwargs)) not in _completed:
-            if _iterations > iterations:
-                raise WaitedTooLongException(
-                    f"Pod still running after {iterations * period} seconds"
-                )
-            _iterations += 1
-            await asyncio.sleep(period)
-        return phase
-
-    def _deployment_reached_condition(self, *, namespace, name, condition):
+    def deployment_reached_condition(self, *, name, condition):
         deployment = DeploymentService(logger=self.logger).read_status(
-            namespace=namespace, name=name
+            namespace=self.namespace, name=name
         )
         self.logger.debug(f"deployment conditions: {deployment.status.conditions}")
         if deployment.status.conditions is None:
@@ -71,59 +98,46 @@ class DjangoKind:
                 return _condition.status == "True"
         return False
 
-    async def _until_deployment_available(
-        self, *, period=6.0, iterations=20, **pod_kwargs
-    ):
-        _iterations = 0
-        while not self._deployment_reached_condition(
-            condition="Available", **pod_kwargs
-        ):
-            if _iterations > iterations:
-                raise WaitedTooLongException(
-                    f"Deployment not ready after {iterations * period} seconds"
-                )
-            _iterations += 1
-            await asyncio.sleep(period)
-
-    def ensure_redis(self, *, status, base_kwargs):
+    def ensure_redis(self):
         ret = self._ensure(
             kind="deployment",
             purpose="redis",
-            existing=superget(status, "created.deployment.redis"),
-            **base_kwargs,
+            existing=superget(self.status, "created.deployment.redis"),
         )
         merge(
             ret,
             self._ensure(
                 kind="service",
                 purpose="redis",
-                existing=superget(status, "created.service.redis"),
-                **base_kwargs,
+                existing=superget(self.status, "created.service.redis"),
             ),
         )
         return ret
 
-    async def ensure_manage_commands(
-        self, *, manage_commands, spec, body, patch, period, iterations, base_kwargs
-    ):
+    def start_manage_commands(self):
+        manage_commands = self.spec.get("initManageCommands", [])
+        if manage_commands:
+            return self.ensure_manage_commands(manage_commands=manage_commands)
+
+    def ensure_manage_commands(self, *, manage_commands):
         enriched_commands = []
-        env_from = self._get_env_from(spec=spec)
+        env_from = self._get_env_from(spec=self.spec)
         for manage_command in manage_commands:
             _manage_command = "-".join(manage_command)
             enriched_commands.append(
                 {
                     "name": slugify(_manage_command),
-                    "image": base_kwargs.get("image"),
+                    "image": self.image,
                     "command": ["python", "manage.py"] + manage_command,
-                    "env": spec.get("env", []),
+                    "env": self.spec.get("env", []),
                     "envFrom": env_from,
-                    "volumeMounts": spec.get("volumeMounts", []),
+                    "volumeMounts": self.spec.get("volumeMounts", []),
                 }
             )
         enrichments = {
             "spec": {
-                "imagePullSecrets": spec.get("imagePullSecrets", []),
-                "volumes": spec.get("volumes", []),
+                "imagePullSecrets": self.spec.get("imagePullSecrets", []),
+                "volumes": self.spec.get("volumes", []),
                 "initContainers": enriched_commands,
             }
         }
@@ -133,64 +147,33 @@ class DjangoKind:
             kind="pod",
             purpose="migrations",
             enrichments=enrichments,
-            **base_kwargs,
         )
+        return superget(_pod, "pod.migrations")
 
-        # await migrations to complete
-        try:
-            completed_phase = await self._until_pod_completes(
-                namespace=base_kwargs.get("namespace"),
-                name=superget(_pod, "pod.migrations"),
-                period=period,
-                iterations=iterations,
-            )
-        except WaitedTooLongException:
-            # problem
-            # TODO: roll back migrations to prior version, abandon update
-            patch.status["condition"] = "degraded"
-            kopf.exception(body, reason="ManageCommandFailure", message="")
-            raise kopf.PermanentError(
-                "migrations took too long, manual intervention required!"
-            )
-
-        if completed_phase in ("failed", "unknown"):
-            # TODO: roll back migrations to prior version, abandon update
-            patch.status["condition"] = "degraded"
-            raise kopf.PermanentError(
-                "migrations failed, manual intervention required!"
-            )
-
-        patch.status["migrationVersion"] = base_kwargs.get("version")
-        # TODO: collect more ganular data about last migration applied for each app.
-        #  store in status
-
+    def clean_manage_commands(self, *, pod_name):
         # delete the pod
         self._ensure(
             kind="pod",
             purpose="migrations",
-            existing=superget(_pod, "pod.migrations"),
+            existing=pod_name,
             delete=True,
-            **base_kwargs,
         )
 
-    def _deployment_names(self, *, purpose, status, base_kwargs):
+    def _deployment_names(self, *, purpose, status):
         existing = superget(status, f"created.deployment.{purpose}", default="")
 
         # see if the version changed
-        if existing and existing.endswith(base_kwargs.get("version_slug")):
+        if existing and existing.endswith(self.version_slug):
             former = None
         else:
             former = existing
             existing = None
         return former, existing
 
-    def _migrate_deployment(
-        self, *, purpose, status, enrichments, base_kwargs, skip_delete=False
-    ):
+    def _migrate_deployment(self, *, purpose, status, enrichments, skip_delete=False):
         former_deployment, existing_deployment = self._deployment_names(
             purpose=purpose,
             status=status,
-            base_kwargs=base_kwargs,
         )
         self.logger.debug(
             f"migrate {purpose} => former = {former_deployment} :: "
@@ -203,7 +186,6 @@ class DjangoKind:
             purpose=purpose,
             enrichments=enrichments,
             existing=existing_deployment,
-            **base_kwargs,
         )
 
         # bring down the blue deployment
@@ -214,7 +196,6 @@ class DjangoKind:
                 purpose=purpose,
                 existing=former_deployment,
                 delete=True,
-                **base_kwargs,
             )
         return ret
 
@@ -255,215 +236,59 @@ class DjangoKind:
             }
         }
 
-    async def ensure_green_app(self, *, patch, body, spec, status, base_kwargs):
-        enrichments = self._base_enrichments(spec=spec, purpose="app")
+    def start_green_app(self):
+        enrichments = self._base_enrichments(spec=self.spec, purpose="app")
         enrichments["spec"]["template"]["spec"][("containers", 0)].update(
             {
-                "livenessProbe": spec.get("appProbeSpec", {}),
-                "readinessProbe": spec.get("appProbeSpec", {}),
+                "livenessProbe": self.spec.get("appProbeSpec", {}),
+                "readinessProbe": self.spec.get("appProbeSpec", {}),
             }
         )
-        ret = self._migrate_deployment(
+        return self._migrate_deployment(
             purpose="app",
-            status=status,
+            status=self.status,
             enrichments=enrichments,
-            base_kwargs=base_kwargs,
             skip_delete=True,
         )
 
-        # await status checks
-        try:
-            await self._until_deployment_available(
-                namespace=base_kwargs.get("namespace"),
-                name=superget(ret, "deployment.app"),
-            )
-        except WaitedTooLongException:
-            patch.status["condition"] = "degraded"
-            kopf.exception(body, reason="AppPodNotReady", message="")
-            raise kopf.PermanentError("App pod not coming up :(")
-        return ret
-
-    def delete_blue_app(self, *, status, base_kwargs):
-        former_deployment, _ = self._deployment_names(
-            purpose="app",
-            status=status,
-            base_kwargs=base_kwargs,
-        )
-
-        if former_deployment:
+    def clean_blue_app(self, blue_app):
+        if blue_app:
             self.logger.debug("migrate app => doing delete")
             self._ensure(
                 kind="deployment",
                 purpose="app",
-                existing=former_deployment,
+                existing=blue_app,
                 delete=True,
-                **base_kwargs,
             )
 
-    def ensure_worker(self, *, spec, status, base_kwargs):
+    def migrate_worker(self):
         # worker data gathering
         return self._migrate_deployment(
             purpose="worker",
-            status=status,
-            enrichments=self._base_enrichments(spec=spec, purpose="worker"),
-            base_kwargs=base_kwargs,
+            status=self.status,
+            enrichments=self._base_enrichments(spec=self.spec, purpose="worker"),
         )
 
-    def ensure_beat(self, *, spec, status, base_kwargs):
+    def migrate_beat(self):
         # beat data gathering
         return self._migrate_deployment(
             purpose="beat",
-            status=status,
-            enrichments=self._base_enrichments(spec=spec, purpose="beat"),
-            base_kwargs=base_kwargs,
+            status=self.status,
+            enrichments=self._base_enrichments(spec=self.spec, purpose="beat"),
         )
 
-    def migrate_service(self, *, base_kwargs):
+    def migrate_service(self):
         ret = self._ensure(
             kind="service",
             purpose="app",
-            **base_kwargs,
         )
 
         # create Ingress
-        _, common_name = base_kwargs.get("host").split(".", maxsplit=1)
+        _, common_name = self.host.split(".", maxsplit=1)
         merge(
             ret,
-            self._ensure(
-                kind="ingress", purpose="app", common_name=common_name, **base_kwargs
-            ),
+            self._ensure(kind="ingress", purpose="app", common_name=common_name),
         )
-        return ret
-
-    async def update_or_create(
-        self, meta, spec, namespace, body, patch, status, **kwargs
-    ):
-        kopf.info(body, reason="Migrating", message="Enacting new config")
-        patch.status["condition"] = "migrating"
-        # validate by fire
-        try:
-            host = spec["host"]
-            cluster_issuer = spec["clusterIssuer"]
-            version = spec["version"]
-            _image = spec["image"]
-        except KeyError:
-            patch.status["condition"] = "degraded"
-            kopf.exception(body, reason="ConfigError", message="")
-            raise kopf.PermanentError("Spec missing required field")
-
-        self.logger.info(f"Migrating from {status.get('version', 'new')} to {version}")
-
-        image = f"{_image}:{version}"
-        ret = {
-            "deployment": {},
-            "service": {},
-            "ingress": {},
-        }
-
-        # ensure namespace -- actually _don't_. this process should fail if
-        #   the namespace doesn't exist
-
-        _base = {
-            "namespace": namespace,
-            "body": body,
-            "host": host,
-            "cluster_issuer": cluster_issuer,
-            "version": version,
-            "version_slug": slugify(version),
-            "image": image,
-            "redis_port": superget(spec, "ports.redis", default=6379),
-            "app_port": superget(spec, "ports.app", default=8000),
-            "app_replicas": superget(
-                status,
-                "replicas.app",
-                default=superget(spec, "replicas.app", default=1),
-            ),
-            "worker_replicas": superget(
-                status,
-                "replicas.worker",
-                default=superget(spec, "replicas.worker", default=1),
-            ),
-        }
-        self.logger.debug(f"Base kwargs: {_base}")
-
-        # create redis deployment (this is static, so
-        #   not going to worry about green-blue)
-        self.logger.info("Setting redis deployment")
-        merge(ret, self.ensure_redis(status=status, base_kwargs=_base))
-
-        force_migrations = spec.get("alwaysRunMigrations")
-        if not force_migrations and status.get("migrationVersion", "zero") == version:
-            self.logger.info(
-                f"Already migrated to version {version}, skipping management commands"
-            )
-        else:
-            self.logger.info("Beginning management commands")
-            # create ephemeral job for for `initManageCommands`
-            manage_commands = spec.get("initManageCommands", [])
-            if manage_commands:
-                await self.ensure_manage_commands(
-                    manage_commands=manage_commands,
-                    spec=spec,
-                    patch=patch,
-                    body=body,
-                    base_kwargs=_base,
-                    period=superget(spec, "initManageTimeouts.period"),
-                    iterations=superget(spec, "initManageTimeouts.iterations"),
-                )
-
-        self.logger.info("Setting up green app deployment")
-        # bring up the green app deployment
-        merge(
-            ret,
-            await self.ensure_green_app(
-                spec=spec,
-                patch=patch,
-                body=body,
-                status=status,
-                base_kwargs=_base,
-            ),
-        )
-
-        self.logger.info("Setting up green worker deployment")
-        # bring up new worker and dismiss old one
-        merge(
-            ret,
-            self.ensure_worker(
-                spec=spec,
-                status=status,
-                base_kwargs=_base,
-            ),
-        )
-
-        self.logger.info("Setting up green beat deployment")
-        # bring up new beat and dismiss old one
-        merge(
-            ret,
-            self.ensure_beat(
-                spec=spec,
-                status=status,
-                base_kwargs=_base,
-            ),
-        )
-
-        self.logger.info("Migrating service to green app deployment")
-        # update app service selector, create ingress
-        merge(ret, self.migrate_service(base_kwargs=_base))
-
-        self.logger.info("Removing blue app deployment")
-        # bring down the blue app deployment
-        self.delete_blue_app(status=status, base_kwargs=_base)
-
-        # patch status
-        patch.status["condition"] = "running"
-        patch.status["version"] = version
-        patch.status["replicas"] = {
-            "app": _base["app_replicas"],
-            "worker": _base["worker_replicas"],
-        }
-        self.logger.info("Migration complete. All that was green is now blue")
-        kopf.info(body, reason="Ready", message="New config running")
-        patch.status["created"] = ret
         return ret
 
     def scale_deployment(
