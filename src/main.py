@@ -93,6 +93,7 @@ def complete_management_commands(
     blue_app = superget(status, "created.deployment.app")
     logger.info("Setting up green app deployment")
     patch.status["created"] = django.start_green_app()
+    patch.metadata.labels["migration-step"] = "green-app"
     return {"blue_app": blue_app}
 
 
@@ -130,7 +131,6 @@ def green_app_ready(logger, patch, body, spec, status, namespace, retry, **kwarg
     blue_app = superget(status, "complete_management_commands.blue_app")
     logger.info("Removing blue app deployment")
     django.clean_blue_app(blue_app=blue_app)
-    patch.metadata.labels["migration-step"] = "ready"
     patch.status["condition"] = "running"
     patch.status["version"] = django.version
     patch.status["replicas"] = {
@@ -140,6 +140,7 @@ def green_app_ready(logger, patch, body, spec, status, namespace, retry, **kwarg
     patch.status["created"] = created
     kopf.info(body, reason="Ready", message="New config running")
     logger.info("Migration complete. All that was green is now blue")
+    patch.metadata.labels["migration-step"] = "ready"
     return {"ready": True}
 
 
