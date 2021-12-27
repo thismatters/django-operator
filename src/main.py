@@ -1,8 +1,8 @@
 import kopf
+from kubernetes.client.exceptions import ApiException
 
 from django_operator.kinds import DjangoKind
 from django_operator.utils import merge, superget
-
 
 @kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
@@ -73,7 +73,10 @@ def complete_management_commands(
     )
     pod_name = superget(status, "start_management_commands.pod_name")
     if pod_name:
-        pod_phase = django.pod_phase(pod_name)
+        try:
+            pod_phase = django.pod_phase(pod_name)
+        except ApiException:
+            pod_phase = "unknown"
         if pod_phase in ("failed", "unknown"):
             patch.status["condition"] = "degraded"
             raise kopf.PermanentError(
