@@ -245,7 +245,6 @@ class DjangoKind:
         )
         return self._migrate_deployment(
             purpose="app",
-            status=self.status,
             enrichments=enrichments,
             skip_delete=True,
         )
@@ -264,7 +263,6 @@ class DjangoKind:
         # worker data gathering
         return self._migrate_deployment(
             purpose="worker",
-            status=self.status,
             enrichments=self._base_enrichments(spec=self.spec, purpose="worker"),
         )
 
@@ -272,7 +270,6 @@ class DjangoKind:
         # beat data gathering
         return self._migrate_deployment(
             purpose="beat",
-            status=self.status,
             enrichments=self._base_enrichments(spec=self.spec, purpose="beat"),
         )
 
