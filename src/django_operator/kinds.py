@@ -159,8 +159,8 @@ class DjangoKind:
             delete=True,
         )
 
-    def _deployment_names(self, *, purpose, status):
-        existing = superget(status, f"created.deployment.{purpose}", default="")
+    def _deployment_names(self, *, purpose):
+        existing = superget(self.status, f"created.deployment.{purpose}", default="")
 
         # see if the version changed
         if existing and existing.endswith(self.version_slug):
@@ -170,10 +170,9 @@ class DjangoKind:
             existing = None
         return former, existing
 
-    def _migrate_deployment(self, *, purpose, status, enrichments, skip_delete=False):
+    def _migrate_deployment(self, *, purpose, enrichments, skip_delete=False):
         former_deployment, existing_deployment = self._deployment_names(
             purpose=purpose,
-            status=status,
         )
         self.logger.debug(
             f"migrate {purpose} => former = {former_deployment} :: "
