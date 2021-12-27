@@ -53,10 +53,11 @@ def start_management_commands(logger, patch, body, spec, status, namespace, **kw
     "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "mgmt-cmd"}
 )
 def complete_management_commands(
-    retries, logger, patch, body, spec, status, namespace, **kwargs
+    logger, patch, body, spec, status, namespace, retries=0, **kwargs
 ):
     """Ensure the management commands have completed, clean up their pod"""
     max_retries = superget(spec, "initManageTimeouts.iterations")
+    logger.debug(f"Retry count {retries}")
     if retries > max_retries:
         patch.status["condition"] = "degraded"
         raise kopf.PermanentError(
@@ -95,9 +96,10 @@ def complete_management_commands(
 @kopf.on.update(
     "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "green-app"}
 )
-def green_app_ready(retries, logger, patch, body, spec, status, namespace, **kwargs):
+def green_app_ready(logger, patch, body, spec, status, namespace, retries=0, **kwargs):
     """Ensure the green app has come up, complete process"""
     max_retries = 20
+    logger.debug(f"Retry count {retries}")
     if retries > max_retries:
         patch.status["condition"] = "degraded"
         raise kopf.PermanentError(
