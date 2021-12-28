@@ -165,9 +165,27 @@ def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
     patch.status["created"] = created
     kopf.info(body, reason="Ready", message="New config running")
     logger.info("Migration complete. All that was green is now blue")
-    patch.status["migrateToSpec"] = None
-    patch.metadata.labels["migration-step"] = "ready"
-    return {"ready": True}
+    patch.metadata.labels["migration-step"] = "cleanup"
+    return {"migrated": True}
+
+
+@kopf.on.update(
+    "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "cleanup"}
+)
+def complete_migration(logger, patch, spec, status, **kwargs):
+    """Verify that the deployed spec is still the desired spec. Restart the
+    migration process if the spec has changed"""
+    deployed_spec = status.get("migrateToSpec")
+    _spec = dict(spec)
+
+    if deployed_spec == _spec:
+        patch.metadata.labels["migration-step"] = "ready"
+        patch.status["migrateToSpec"] = None
+    else:
+        logger.info("Object changed during migration. Starting new migration.")
+        patch.metadata.labels["migration-step"] = "starting"
+        patch.status["migrateToSpec"] = _spec
+    return {"complete": True}
 
 
 # @kopf.on.timer("thismatters.net", "v1alpha", "djangos", interval=30)
