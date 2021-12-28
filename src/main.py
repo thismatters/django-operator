@@ -5,14 +5,21 @@ from django_operator.kinds import DjangoKind
 from django_operator.utils import merge, superget
 
 
-@kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
+def initial_migration(logger, patch, body, labels, spec, **kwargs):
+    kopf.info(body, reason="Migrating", message="Enacting brand new config")
+    patch.status["condition"] = "migrating"
+    # collect _all_ the data needed for DjangoKind to run, store it in .status
+    patch.status["migrateToSpec"] = dict(spec)
+    patch.metadata.labels["migration-step"] = "starting"
+
+
+@kopf.on.update("thismatters.github", "v1alpha", "djangos")
 def begin_migration(logger, patch, body, labels, diff, spec, **kwargs):
     """Trigger the migration pipeline and update object to reflect migrating status"""
 
     # profile the incoming diff and squat on any changes apart from the
     # `migration-step` change
-    migration_step_field = ("metadata", "labels", "migration-step")
     real_changes = False
 
     for action, field, old, new in diff:
@@ -20,15 +27,14 @@ def begin_migration(logger, patch, body, labels, diff, spec, **kwargs):
             logger.debug(
                 f"Non metadata field {action} :: {field} := {old} -> {new}"
             )
-            if labels.get("migration-step", "ready") == "ready":
-                real_changes = True
-            else:
-                # my assumption here is that a relevant diff doesn't "time out"
-                #  of the queue when other handlers run
-                raise kopf.TemporaryError(
-                    "Cannot start a new migration right now", delay=30
-                )
-    if not real_changes:
+            real_changes = True
+
+    if real_changes:
+        if labels.get("migration-step", "ready") != "ready":
+            raise kopf.TemporaryError(
+                "Cannot start a new migration right now", delay=30
+            )
+    else:
         logger.debug("Changes appear to only touch migration-step labels; skipping")
         # this is here to test whether a `create` event comes with a diff
         logger.debug(f"{diff}")

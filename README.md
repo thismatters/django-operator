@@ -52,7 +52,8 @@ See [sample.yaml](sample.yaml) for a sample manifest for a django app.
 * [ ] unittests!
 * [ ] documentation for users
 * [ ] manage a database; to facilitate smoke-test deployments -- allow deployment to be defined in the django manifest
-* [ ] better logging
+* [x] better logging
+* [x] de-monolith the process
 
 ### v0.2.0
 * [ ] allow other manifests (deployments, ingresses, services) to be set in django manifest.
