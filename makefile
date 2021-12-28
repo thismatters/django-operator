@@ -7,10 +7,10 @@ shell:
 prelint:
 	@docker-compose -p djop exec op pip install black isort flake8 pytest
 lint:
-	docker-compose -p djop exec -w /op/django_operator op /home/worker/.local/bin/black .
-	docker-compose -p djop exec -w /op/django_operator op /home/worker/.local/bin/isort .
-	docker-compose -p djop exec -w /op/django_operator op /home/worker/.local/bin/flake8 .
+	docker-compose -p djop exec -w /op/src op /home/worker/.local/bin/black .
+	docker-compose -p djop exec -w /op/src op /home/worker/.local/bin/isort .
+	docker-compose -p djop exec -w /op/src op /home/worker/.local/bin/flake8 .
 test:
-	docker-compose -p djop exec -w /op/django_operator op /home/worker/.local/bin/pytest
+	docker-compose -p djop exec -w /op/src op /home/worker/.local/bin/pytest
 stop:
 	@docker-compose -p djop down

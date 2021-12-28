@@ -7,6 +7,9 @@ from kubernetes.client.exceptions import ApiException, ApiValueError
 
 from django_operator.utils import merge, superget
 
+# The useful page
+# https://github.com/kubernetes-client/python/blob/master/kubernetes/README.md
+
 
 class BaseService:
     read_method = None

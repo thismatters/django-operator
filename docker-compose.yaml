@@ -5,5 +5,5 @@ services:
     build: .
     command: ["sh", "-c", "until false; do sleep 30; done"]
     volumes:
-      - ./django_operator:/op/django_operator
+      - ./src:/op/src
       - ./manifests:/op/manifests
