@@ -156,7 +156,6 @@ def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
     blue_app = superget(status, "complete_management_commands.blue_app")
     logger.info("Removing blue app deployment")
     django.clean_blue_app(blue_app=blue_app)
-    patch.status["condition"] = "running"
     patch.status["version"] = django.version
     patch.status["replicas"] = {
         "app": django.base_kwargs["app_replicas"],
@@ -179,6 +178,7 @@ def complete_migration(logger, patch, spec, status, **kwargs):
     _spec = dict(spec)
 
     if deployed_spec == _spec:
+        patch.status["condition"] = "running"
         patch.metadata.labels["migration-step"] = "ready"
         patch.status["migrateToSpec"] = None
     else:
