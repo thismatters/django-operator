@@ -15,10 +15,10 @@ def begin_migration(logger, patch, body, labels, diff, spec, **kwargs):
     migration_step_field = ("metadata", "labels", "migration-step")
     real_changes = False
 
-    for _, field, old, new in diff:
-        if field != migration_step_field:
+    for action, field, old, new in diff:
+        if field[0] != "metadata":
             logger.debug(
-                f"Non migration-step field change :: {field} := {old} -> {new}"
+                f"Non metadata field {action} :: {field} := {old} -> {new}"
             )
             if labels.get("migration-step", "ready") == "ready":
                 real_changes = True
@@ -116,7 +116,12 @@ def complete_management_commands(
     patch.status["migrationVersion"] = django.version
     blue_app = superget(status, "created.deployment.app")
     logger.info("Setting up green app deployment")
-    patch.status["created"] = django.start_green_app()
+    created = django.start_green_app()
+    patch.status["created"] = created
+    if blue_app == superget(created, "deployment.app"):
+        # don't bonk out the thing you just created! (just in case the
+        #  version didn't change)
+        blue_app = None
     patch.metadata.labels["migration-step"] = "green-app"
     return {"blue_app": blue_app}
 

@@ -33,4 +33,4 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            memory: "700Mi"
+            memory: "400Mi"
