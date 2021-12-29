@@ -61,6 +61,6 @@ def adopt_sans_labels(objs, owner, *, labels=None):
 
     owner_labels = superget(owner, "metadata.labels", default={})
     if labels:
-        for label in labels:
-            owner_labels.pop(label, None)
+        for _label in labels:
+            owner_labels.pop(_label, None)
     label(objs, labels=owner_labels)
