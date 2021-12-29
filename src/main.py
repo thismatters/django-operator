@@ -172,10 +172,6 @@ def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
     kopf.info(body, reason="Ready", message="New config running")
     logger.info("Migration complete. All that was green is now blue")
     patch.status["version"] = django.version
-    patch.status["replicas"] = {
-        "app": django.base_kwargs["app_replicas"],
-        "worker": django.base_kwargs["worker_replicas"],
-    }
     patch.status["created"] = created
     patch.status["complete_management_commands"] = None
     patch.metadata.labels["migration-step"] = "finalize"
