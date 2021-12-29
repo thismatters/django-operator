@@ -1,6 +1,11 @@
 import re
 
-from kopf import adjust_namespace, append_owner_reference, harmonize_naming
+from kopf import (
+    adjust_namespace,
+    append_owner_reference,
+    harmonize_naming,
+    label,
+)
 
 
 def superget(dct, superkey, *, default=None, _raise=None):
