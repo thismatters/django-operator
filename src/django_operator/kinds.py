@@ -4,7 +4,6 @@ from django_operator.services import (
     DeploymentService,
     HorizontalPodAutoscalerService,
     IngressService,
-    JobService,
     PodService,
     ServiceService,
 )
@@ -13,7 +12,6 @@ from django_operator.utils import merge, slugify, superget
 
 class DjangoKind:
     kind_services = {
-        "job": JobService,
         "pod": PodService,
         "ingress": IngressService,
         "service": ServiceService,
@@ -25,9 +23,9 @@ class DjangoKind:
         self.logger = logger
         try:
             host = spec["host"]
-            cluster_issuer = spec["clusterIssuer"]
-            version = spec["version"]
             _image = spec["image"]
+            version = spec["version"]
+            cluster_issuer = spec["clusterIssuer"]
         except KeyError:
             patch.status["condition"] = "degraded"
             kopf.exception(body, reason="ConfigError", message="")
@@ -54,15 +52,15 @@ class DjangoKind:
             "worker_memory_request": superget(spec, "resourceRequests.worker.memory"),
         }
         self.logger.debug(f"Base kwargs: {self.base_kwargs}")
-        self.namespace = namespace
-        self.host = host
-        self.image = image
-        self.version = version
-        self.version_slug = version_slug
-        self.patch = patch
         self.body = body
+        self.host = host
         self.spec = spec
+        self.image = image
+        self.patch = patch
         self.status = status
+        self.version = version
+        self.namespace = namespace
+        self.version_slug = version_slug
 
     def _ensure(self, kind, purpose, delete=False, template=None, **kwargs):
         kind_service_class = self.kind_services[kind]
