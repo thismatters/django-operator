@@ -9,24 +9,33 @@ spec:
   version: "2021.12.1"
   # it is expected that the version will be the tag for the image
   clusterIssuer: letsencrypt
-  replicas:
-    app: 2
-    worker: 1
+  autoscaler:
+    app:
+      cpuUtilizationThreshold: 70
+      replicas:
+        minimum: 1
+    worker:
+      replicas:
+        minimum: 1
+        maximum: 2
+  resourceRequests:
+    app:
+      memory: "300Mi"
+    beat:
+      memory: "100Mi"
+    worker:
+      memory: "300Mi"
+      cpu: "1000m"
   ports:
-    app: 8000
+    app: 8000  # this needs to be exposed by the image
     redis: 6379
-  env: []
+  env:
+  - name: REGULAR_ENV_VAR
+    value: "regular value"
   envFromConfigMapRefs:
   - env
   envFromSecretRefs:
-  - aws
-  - crypto
   - database
-  - email
-  - google-auth
-  - paysimple
-  - plaid
-  - secret-key
   imagePullSecrets:
   - name: gitlab-registry-read
   volumes:
@@ -39,25 +48,40 @@ spec:
     readOnly: true
   alwaysRunMigrations: true
   initManageCommands:
-  # these will run in an init container, migrate might get special treatment vis-a-vi rolling back
+  # these will run in an init pod, migrate might get special treatment vis-a-vi rolling back
   - ["migrate"]
   - ["create_groups"]
   - ["ensure_contract_pricing"]
   - ["initialize_payment_webhooks"]
   - ["loaddata", "money_positive/fixtures/us_states.json"]
   initManageTimeouts:
-    period: 12
-    iterations: 20
+    period: 6
+    iterations: 10
   commands:
     app:
-      command: ["gunicorn"]
-      args: ["money_positive.wsgi:application", "-b", "0.0.0.0:8000"]
+      command:
+      - "gunicorn"
+      args:
+      - "money_positive.wsgi:application"
+      - "-b"
+      - "0.0.0.0:8000"
     worker:
-      command: ["celery"]
-      args: ["--app=money_positive", "worker", "--loglevel=INFO"]
+      command:
+      - "celery"
+      args:
+      - "--app=money_positive"
+      - "worker"
+      - "--loglevel=INFO"
     beat:
-      command: ["celery"]
-      args: ["--app=money_positive", "beat", "--loglevel=INFO", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler", "--pidfile='/tmp/celerybeat.pid'"]
+      command:
+      - "celery"
+      args:
+      - "--app=money_positive"
+      - "beat"
+      - "--loglevel=INFO"
+      - "--scheduler"
+      - "django_celery_beat.schedulers:DatabaseScheduler"
+      - "--pidfile='/tmp/celerybeat.pid'"
   appProbeSpec:
     httpGet:
       scheme: HTTP

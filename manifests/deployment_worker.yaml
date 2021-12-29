@@ -6,7 +6,6 @@ metadata:
     version: "{version}"
   name: "worker-{version_slug}"
 spec:
-  replicas: {worker_replicas}
   selector:
     matchLabels:
       role: worker
@@ -33,4 +32,5 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            memory: "400Mi"
+            memory: "{worker_memory_request}"
+            cpu: "{worker_cpu_request}"

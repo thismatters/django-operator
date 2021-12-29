@@ -6,7 +6,6 @@ metadata:
     version: "{version}"
   name: "app-{version_slug}"
 spec:
-  replicas: {app_replicas}
   selector:
     matchLabels:
       role: app
@@ -34,4 +33,5 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            memory: "700Mi"
+            memory: "{app_memory_request}"
+            cpu: "{app_cpu_request}"

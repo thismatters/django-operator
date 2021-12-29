@@ -24,9 +24,7 @@ def begin_migration(logger, patch, body, labels, diff, spec, **kwargs):
 
     for action, field, old, new in diff:
         if field[0] != "metadata":
-            logger.debug(
-                f"Non metadata field {action} :: {field} := {old} -> {new}"
-            )
+            logger.debug(f"Non metadata field {action} :: {field} := {old} -> {new}")
             real_changes = True
 
     if real_changes:
@@ -102,6 +100,7 @@ def complete_management_commands(
         namespace=namespace,
     )
     pod_name = superget(status, "start_management_commands.pod_name")
+
     if pod_name:
         try:
             pod_phase = django.pod_phase(pod_name)
@@ -119,16 +118,18 @@ def complete_management_commands(
             )
         django.clean_manage_commands(pod_name=pod_name)
 
-    patch.status["migrationVersion"] = django.version
     blue_app = superget(status, "created.deployment.app")
     logger.info("Setting up green app deployment")
     created = django.start_green_app()
+
+    patch.status["migrationVersion"] = django.version
     patch.status["created"] = created
+    patch.status["start_management_commands"] = None
+    patch.metadata.labels["migration-step"] = "green-app"
     if blue_app == superget(created, "deployment.app"):
         # don't bonk out the thing you just created! (just in case the
         #  version didn't change)
         blue_app = None
-    patch.metadata.labels["migration-step"] = "green-app"
     return {"blue_app": blue_app}
 
 
@@ -167,16 +168,36 @@ def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
     blue_app = superget(status, "complete_management_commands.blue_app")
     logger.info("Removing blue app deployment")
     django.clean_blue_app(blue_app=blue_app)
+
+    kopf.info(body, reason="Ready", message="New config running")
+    logger.info("Migration complete. All that was green is now blue")
     patch.status["version"] = django.version
     patch.status["replicas"] = {
         "app": django.base_kwargs["app_replicas"],
         "worker": django.base_kwargs["worker_replicas"],
     }
     patch.status["created"] = created
-    kopf.info(body, reason="Ready", message="New config running")
-    logger.info("Migration complete. All that was green is now blue")
+    patch.status["complete_management_commands"] = None
+    patch.metadata.labels["migration-step"] = "finalize"
+
+
+@kopf.on.update(
+    "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "finalize"}
+)
+def finalize(logger, patch, body, status, namespace, **kwargs):
+    spec = status.get("migrateToSpec")
+    """Set up horizontal pod autoscaling"""
+    django = DjangoKind(
+        logger=logger,
+        patch=patch,
+        body=body,
+        spec=spec,
+        status=status,
+        namespace=namespace,
+    )
+    logger.info("Setting up horizontal pod autoscaling")
+    patch.status["created"] = django.migrate_autoscalers()
     patch.metadata.labels["migration-step"] = "cleanup"
-    return {"migrated": True}
 
 
 @kopf.on.update(
@@ -186,6 +207,7 @@ def complete_migration(logger, patch, spec, status, **kwargs):
     """Verify that the deployed spec is still the desired spec. Restart the
     migration process if the spec has changed"""
     deployed_spec = status.get("migrateToSpec")
+
     _spec = dict(spec)
 
     if deployed_spec == _spec:
@@ -196,10 +218,3 @@ def complete_migration(logger, patch, spec, status, **kwargs):
         logger.info("Object changed during migration. Starting new migration.")
         patch.metadata.labels["migration-step"] = "starting"
         patch.status["migrateToSpec"] = _spec
-    return {"complete": True}
-
-
-# @kopf.on.timer("thismatters.net", "v1alpha", "djangos", interval=30)
-# def scale_deployment(**kwargs):
-#     DjangoKind().scale_deployment(**kwargs)
-#     DjangoKind().scale_deployment(deployment="worker", **kwargs)

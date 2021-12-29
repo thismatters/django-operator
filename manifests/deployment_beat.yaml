@@ -33,4 +33,5 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            memory: "300Mi"
+            memory: "{beat_memory_request}"
+            cpu: "{beat_cpu_request}"

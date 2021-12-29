@@ -1,5 +1,7 @@
 import re
 
+from kopf import adjust_namespace, append_owner_reference, harmonize_naming
+
 
 def superget(dct, superkey, *, default=None, _raise=None):
     if "." in superkey:
@@ -48,3 +50,17 @@ def merge(left, right):
 
 def slugify(unslug):
     return re.sub("[^-a-z0-9]+", "-", unslug.lower())
+
+
+def adopt_sans_labels(objs, owner, *, labels=None):
+    owner_name = superget(owner, "metadata.name")
+    owner_namespace = superget(owner, "metadata.namespace")
+    append_owner_reference(objs, owner=owner)
+    harmonize_naming(objs, name=owner_name)
+    adjust_namespace(objs, namespace=owner_namespace)
+
+    owner_labels = superget(owner, "metadata.labels", default={})
+    if labels:
+        for label in labels:
+            owner_labels.pop(label, None)
+    label(objs, labels=owner_labels)

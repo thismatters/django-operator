@@ -54,7 +54,9 @@ See [sample.yaml](sample.yaml) for a sample manifest for a django app.
 * [ ] manage a database; to facilitate smoke-test deployments -- allow deployment to be defined in the django manifest
 * [x] better logging
 * [x] de-monolith the process
+* [x] labels ("migration-step": "green-app") are contaminating the ingresses
+* [ ] more active monitoring of child resources (prevent deletion, &c.)
+* [x] incorporate metrics from metric server into autoscaling. (use horizontal pod autoscaling instead!)
 
 ### v0.2.0
 * [ ] allow other manifests (deployments, ingresses, services) to be set in django manifest.
-* [ ] incorporate metrics from metric server into autoscaling.
