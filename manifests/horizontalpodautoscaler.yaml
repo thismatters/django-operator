@@ -3,8 +3,8 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: "{purpose}"
 spec:
-  maxReplicas: "{max_replicas}"
-  minReplicas: "{min_replicas}"
+  maxReplicas: {max_replicas}
+  minReplicas: {min_replicas}
   metrics:
   - type: Resource
     resource:
