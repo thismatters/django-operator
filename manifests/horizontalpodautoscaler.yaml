@@ -18,7 +18,7 @@ spec:
     name: "{deployment_name}"
 status:
   conditions:
-  - status: True
+  - status: "True"
     type: AbleToScale
   currentReplicas: {min_replicas}
   desiredReplicas: {min_replicas}
