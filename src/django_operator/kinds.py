@@ -204,7 +204,6 @@ class DjangoKind:
             template=template,
             **kwargs,
         )
-        self.logger.debug(f"{green_obj.to_dict()}")
         ret = {kind: {purpose: green_obj.metadata.name}}
 
         if kind == "deployment":
@@ -231,7 +230,7 @@ class DjangoKind:
                         kind="horizontalpodautoscaler",
                         purpose=purpose,
                         template="horizontalpodautoscaler.yaml",
-                        parent=green_obj.to_dict(),
+                        parent=green_obj,
                         **hpa_kwargs,
                     ),
                 )
