@@ -204,6 +204,7 @@ class DjangoKind:
             template=template,
             **kwargs,
         )
+        self.logger.debug(f"{green_obj.to_dict()}")
         ret = {kind: {purpose: green_obj.metadata.name}}
 
         if kind == "deployment":
@@ -226,14 +227,13 @@ class DjangoKind:
                     hpa_kwargs.update(
                         {"current_replicas": blue_obj.spec.replicas}
                     )
-
                 merge(
                     ret,
                     self._ensure(
                         kind="horizontalpodautoscaler",
                         purpose=purpose,
                         template="horizontalpodautoscaler.yaml",
-                        parent=green_obj,
+                        parent=green_obj.to_dict(),
                         **hpa_kwargs,
                     ),
                 )
