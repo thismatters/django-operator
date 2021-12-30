@@ -216,7 +216,7 @@ class DjangoKind:
                     "cpu_threshold": hpa_details["cpuUtilizationThreshold"],
                     "max_replicas": superget(hpa_details, "replicas.maximum"),
                     "min_replicas": superget(hpa_details, "replicas.minimum"),
-                    "current_replicas": superget(green_obj, "spec.replicas"),
+                    "current_replicas": green_obj.spec.replicas,
                 }
 
                 if blue_name:
@@ -225,7 +225,7 @@ class DjangoKind:
                         name=blue_name,
                     )
                     hpa_kwargs.update(
-                        {"current_replicas": superget(blue_obj, "spec.replicas")}
+                        {"current_replicas": blue_obj.spec.replicas}
                     )
 
                 merge(
