@@ -28,7 +28,7 @@ def superget(dct, superkey, *, default=None, _raise=None):
         val = getattr(dct, key)
     if not remainder:
         return val
-    return superget(val, remainder)
+    return superget(val, remainder, default=default, _raise=_raise)
 
 
 def merge(left, right):
@@ -88,6 +88,7 @@ def _k8s_client_owner_mask(k8s_obj):
 def adopt_sans_labels(objs, owner, *, labels=None):
     owner_name = superget(owner, "metadata.name")
     owner_namespace = superget(owner, "metadata.namespace")
+    owner_labels = dict(superget(owner, "metadata.labels", default={}))
     if not isinstance(owner, (dict,)):
         if hasattr(owner, "to_dict"):
             owner = _k8s_client_owner_mask(owner)
@@ -95,7 +96,6 @@ def adopt_sans_labels(objs, owner, *, labels=None):
     harmonize_naming(objs, name=owner_name)
     adjust_namespace(objs, namespace=owner_namespace)
 
-    owner_labels = dict(superget(owner, "metadata.labels", default={}))
     if labels:
         for _label in labels:
             owner_labels.pop(_label, None)

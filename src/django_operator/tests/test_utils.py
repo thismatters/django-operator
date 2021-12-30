@@ -27,12 +27,14 @@ class UtilsTestCase(TestCase):
         self.assertEqual(superget(haystack, "f"), "thirdneedle")
         self.assertEqual(superget(haystack, "a.b.e"), "otherneedle")
         self.assertEqual(superget(haystack, "a.b.c.d"), "needle")
+        self.assertEqual(superget(haystack, "a.b.g", default={}), {})
         self.assertEqual(superget(haystack, "n", default=""), "")
 
         prop_haystack = PropObject(haystack)
         self.assertEqual(superget(prop_haystack, "f"), "thirdneedle")
         self.assertEqual(superget(prop_haystack, "a.b.e"), "otherneedle")
         self.assertEqual(superget(prop_haystack, "a.b.c.d"), "needle")
+        self.assertEqual(superget(prop_haystack, "a.b.g", default={}), {})
         self.assertEqual(superget(prop_haystack, "n", default=""), "")
 
     def test_merge(self):
