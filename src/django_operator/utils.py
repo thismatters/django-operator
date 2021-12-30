@@ -67,7 +67,8 @@ def slugify(unslug):
 
 def adopt_sans_labels(objs, owner, *, labels=None):
     if not isinstance(owner, (dict,)):
-        owner = owner.to_dict()
+        if hasattr(owner, "to_dict"):
+            owner = owner.to_dict()
     owner_name = superget(owner, "metadata.name")
     owner_namespace = superget(owner, "metadata.namespace")
     append_owner_reference(objs, owner=owner)
