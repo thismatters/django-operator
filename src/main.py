@@ -154,6 +154,7 @@ def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
         status=status,
         namespace=namespace,
     )
+    logger.debug(f"{status}")
     green = superget(status, "created.deployment.app")
     if not django.deployment_reached_condition(condition="Available", name=green):
         period = 6
