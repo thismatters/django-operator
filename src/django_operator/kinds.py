@@ -82,7 +82,7 @@ class DjangoKind:
         return obj
 
     def _ensure(self, kind, purpose, delete=False, **kwargs):
-        obj = self._ensure_raw(kind, purpose, delete=delete)
+        obj = self._ensure_raw(kind, purpose, delete=delete, **kwargs)
         if not delete:
             return {kind: {purpose: obj.metadata.name}}
         return {}
