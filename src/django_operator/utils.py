@@ -72,7 +72,7 @@ def adopt_sans_labels(objs, owner, *, labels=None):
     harmonize_naming(objs, name=owner_name)
     adjust_namespace(objs, namespace=owner_namespace)
 
-    owner_labels = superget(owner, "metadata.labels", default={})
+    owner_labels = dict(superget(owner, "metadata.labels", default={}))
     if labels:
         for _label in labels:
             owner_labels.pop(_label, None)
