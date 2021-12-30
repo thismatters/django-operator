@@ -14,7 +14,7 @@ def initial_migration(logger, patch, body, labels, spec, **kwargs):
     patch.metadata.labels["migration-step"] = "starting"
 
 
-@kopf.on.update("thismatters.github", "v1alpha", "djangos")
+@kopf.on.update("thismatters.github", "v1alpha", "djangos", labels={"migration-step": "ready"})
 def begin_migration(logger, patch, body, labels, diff, spec, **kwargs):
     """Trigger the migration pipeline and update object to reflect migrating status"""
 
@@ -27,12 +27,7 @@ def begin_migration(logger, patch, body, labels, diff, spec, **kwargs):
             logger.debug(f"Non metadata field {action} :: {field} := {old} -> {new}")
             real_changes = True
 
-    if real_changes:
-        if labels.get("migration-step", "ready") != "ready":
-            raise kopf.TemporaryError(
-                "Cannot start a new migration right now", delay=30
-            )
-    else:
+    if not real_changes:
         logger.debug("Changes appear to only touch migration-step labels; skipping")
         # this is here to test whether a `create` event comes with a diff
         logger.debug(f"{diff}")
