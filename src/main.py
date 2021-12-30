@@ -156,6 +156,7 @@ def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
     )
     logger.debug(f"{status}")
     green = superget(status, "created.deployment.app")
+    logger.debug(green)
     if not django.deployment_reached_condition(condition="Available", name=green):
         period = 6
         raise kopf.TemporaryError("Green app not available yet. Waiting.", delay=period)

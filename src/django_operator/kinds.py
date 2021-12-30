@@ -94,6 +94,7 @@ class DjangoKind:
         return pod.status.phase.lower()
 
     def deployment_reached_condition(self, *, name, condition):
+        self.logger.debug(f"within deployment_reached_condition: name= {name}")
         deployment = DeploymentService(logger=self.logger).read_status(
             namespace=self.namespace, name=name
         )
