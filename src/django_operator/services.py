@@ -92,7 +92,7 @@ class BaseService:
                 raise Exception("wtf")  # config error
             _body = self._enrich_manifest(body=_body, enrichments=enrichments)
             adopt_sans_labels(_body, owner=parent, labels=("migration-step",))
-            self.logger.debug(f"_body")
+            self.logger.debug(f"{_body}")
         if not existing:
             # look for an existing resource anyway
             try:
