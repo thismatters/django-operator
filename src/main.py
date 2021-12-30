@@ -120,7 +120,7 @@ def complete_management_commands(
 
     blue_app = superget(status, "created.deployment.app")
     logger.info("Setting up green app deployment")
-    created = django.start_green_app()
+    created = django.start_green(purpose="app")
 
     patch.status["migrationVersion"] = django.version
     patch.status["created"] = created
@@ -167,32 +167,13 @@ def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
     merge(created, django.migrate_service())
     blue_app = superget(status, "complete_management_commands.blue_app")
     logger.info("Removing blue app deployment")
-    django.clean_blue_app(blue_app=blue_app)
+    django.clean_blue(purpose="app", blue=blue_app)
 
     kopf.info(body, reason="Ready", message="New config running")
     logger.info("Migration complete. All that was green is now blue")
     patch.status["version"] = django.version
     patch.status["created"] = created
     patch.status["complete_management_commands"] = None
-    patch.metadata.labels["migration-step"] = "finalize"
-
-
-@kopf.on.update(
-    "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "finalize"}
-)
-def finalize(logger, patch, body, status, namespace, **kwargs):
-    spec = status.get("migrateToSpec")
-    """Set up horizontal pod autoscaling"""
-    django = DjangoKind(
-        logger=logger,
-        patch=patch,
-        body=body,
-        spec=spec,
-        status=status,
-        namespace=namespace,
-    )
-    logger.info("Setting up horizontal pod autoscaling")
-    patch.status["created"] = django.migrate_autoscalers()
     patch.metadata.labels["migration-step"] = "cleanup"
 
 

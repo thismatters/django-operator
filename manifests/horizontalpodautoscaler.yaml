@@ -21,4 +21,4 @@ status:
   - status: "True"
     type: AbleToScale
   currentReplicas: {min_replicas}
-  desiredReplicas: {min_replicas}
+  desiredReplicas: {current_replicas}

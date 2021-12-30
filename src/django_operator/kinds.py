@@ -62,19 +62,27 @@ class DjangoKind:
         self.namespace = namespace
         self.version_slug = version_slug
 
-    def _ensure(self, kind, purpose, delete=False, template=None, **kwargs):
+    def _ensure_raw(
+        self, kind, purpose, delete=False, template=None, parent=None, **kwargs
+    ):
         kind_service_class = self.kind_services[kind]
         if template is None:
             template = f"{kind}_{purpose}.yaml"
+        if parent is None:
+            parent = self.body
         obj = kind_service_class(logger=self.logger).ensure(
             namespace=self.namespace,
             template=template,
-            parent=self.body,
+            parent=parent,
             purpose=purpose,
             delete=delete,
             **kwargs,
             **self.base_kwargs,
         )
+        return obj
+
+    def _ensure(self, kind, purpose, delete=False, **kwargs):
+        obj = self._ensure_raw(kind, purpose, delete=delete)
         if not delete:
             return {kind: {purpose: obj.metadata.name}}
         return {}
@@ -178,32 +186,65 @@ class DjangoKind:
         skip_delete=False,
         **kwargs,
     ):
-        former_resource, existing_resource = self._resource_names(
+        blue_name, green_name = self._resource_names(
             kind=kind,
             purpose=purpose,
         )
         self.logger.debug(
-            f"migrate {purpose} {kind} => former = {former_resource} :: "
-            f"existing = {existing_resource} :: skip_delete = {skip_delete}"
+            f"migrate {purpose} {kind} => former = {blue_name} :: "
+            f"existing = {green_name} :: skip_delete = {skip_delete}"
         )
 
         # bring up the green deployment
-        ret = self._ensure(
+        green_obj = self._ensure_raw(
             kind="deployment",
             purpose=purpose,
             enrichments=enrichments,
-            existing=existing_resource,
+            existing=green_name,
             template=template,
-            **kwargs,
+            raw=True ** kwargs,
         )
+        ret = {kind: {purpose: green_obj.metadata.name}}
 
-        # bring down the blue deployment
-        if former_resource and not skip_delete:
+        if kind == "deployment":
+            # create horizontal pod autoscaling if appropriate
+            hpa_details = superget(self.spec, f"autoscalers.{purpose}", default={})
+            if hpa_details.get("enabled", False):
+                hpa_kwargs = {
+                    "deployment_name": green_name,
+                    "cpu_threshold": hpa_details["cpuUtilizationThreshold"],
+                    "max_replicas": superget(hpa_details, "replicas.maximum"),
+                    "min_replicas": superget(hpa_details, "replicas.minimum"),
+                    "current_replicas": superget(green_obj, "spec.replicas"),
+                }
+
+                if blue_name:
+                    blue_obj = DeploymentService(logger=self.logger).read(
+                        namespace=self.namespace,
+                        name=blue_name,
+                    )
+                    hpa_kwargs.update(
+                        {"current_replicas": superget(blue_obj, "spec.replicas")}
+                    )
+
+                merge(
+                    ret,
+                    self._ensure(
+                        kind="horizontalpodautoscaler",
+                        purpose=purpose,
+                        template="horizontalpodautoscaler.yaml",
+                        parent=green_obj,
+                        **hpa_kwargs,
+                    ),
+                )
+
+        # bring down the blue_obj deployment
+        if blue_name and not skip_delete:
             self.logger.debug(f"migrate {purpose} => doing delete")
             self._ensure(
                 kind="deployment",
                 purpose=purpose,
-                existing=former_resource,
+                existing=blue_name,
                 delete=True,
             )
         return ret
@@ -245,27 +286,28 @@ class DjangoKind:
             }
         }
 
-    def start_green_app(self):
-        enrichments = self._base_enrichments(spec=self.spec, purpose="app")
-        enrichments["spec"]["template"]["spec"][("containers", 0)].update(
-            {
-                "livenessProbe": self.spec.get("appProbeSpec", {}),
-                "readinessProbe": self.spec.get("appProbeSpec", {}),
-            }
-        )
+    def start_green(self, *, purpose):
+        enrichments = self._base_enrichments(spec=self.spec, purpose=purpose)
+        if purpose == "app":
+            enrichments["spec"]["template"]["spec"][("containers", 0)].update(
+                {
+                    "livenessProbe": self.spec.get("appProbeSpec", {}),
+                    "readinessProbe": self.spec.get("appProbeSpec", {}),
+                }
+            )
         return self._migrate_resource(
             purpose="app",
             enrichments=enrichments,
             skip_delete=True,
         )
 
-    def clean_blue_app(self, blue_app):
-        if blue_app:
-            self.logger.debug("migrate app => doing delete")
+    def clean_blue(self, *, purpose, blue):
+        if blue:
+            self.logger.debug(f"migrate {purpose} => doing delete")
             self._ensure(
                 kind="deployment",
-                purpose="app",
-                existing=blue_app,
+                purpose=purpose,
+                existing=blue,
                 delete=True,
             )
 
@@ -295,25 +337,4 @@ class DjangoKind:
             ret,
             self._ensure(kind="ingress", purpose="app", common_name=common_name),
         )
-        return ret
-
-    def migrate_autoscalers(self):
-        ret = {}
-        for purpose, details in self.spec["autoscalers"].items():
-            if not details["enabled"]:
-                continue
-            merge(
-                ret,
-                self._migrate_resource(
-                    kind="horizontalpodautoscaler",
-                    purpose=purpose,
-                    template="horizontalpodautoscaler.yaml",
-                    cpu_threshold=details["cpuUtilizationThreshold"],
-                    deployment_name=superget(
-                        self.status, f"created.deployment.{purpose}"
-                    ),
-                    max_replicas=superget(details, "replicas.maximum"),
-                    min_replicas=superget(details, "replicas.minimum"),
-                ),
-            )
         return ret

@@ -68,6 +68,9 @@ class BaseService:
                 raise
         return body
 
+    def read(self, **kwargs):
+        return self._read(**kwargs)
+
     def ensure(
         self,
         *,
