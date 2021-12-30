@@ -224,9 +224,7 @@ class DjangoKind:
                         namespace=self.namespace,
                         name=blue_name,
                     )
-                    hpa_kwargs.update(
-                        {"current_replicas": blue_obj.spec.replicas}
-                    )
+                    hpa_kwargs.update({"current_replicas": blue_obj.spec.replicas})
                 merge(
                     ret,
                     self._ensure(

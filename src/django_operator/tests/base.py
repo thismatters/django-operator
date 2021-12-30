@@ -5,6 +5,7 @@ class MockLogger:
     def debug(self, *args, **kwargs):
         pass
 
+
 class PropObject:
     def __init__(self, dct):
         for prop, value in dct.items():
@@ -13,3 +14,6 @@ class PropObject:
             else:
                 _value = value
             setattr(self, prop, _value)
+
+    def to_dict(self):
+        pass

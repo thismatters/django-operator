@@ -1,7 +1,14 @@
 from unittest import TestCase
 
+from kubernetes.client import V1Deployment, V1ObjectMeta
+
 from django_operator.tests.base import PropObject
-from django_operator.utils import merge, slugify, superget
+from django_operator.utils import (
+    _k8s_client_owner_mask,
+    merge,
+    slugify,
+    superget,
+)
 
 
 class UtilsTestCase(TestCase):
@@ -69,3 +76,25 @@ class UtilsTestCase(TestCase):
     def test_slugify(self):
         unslug = "bu.nch_of1  OTHEr__shit"
         self.assertEqual(slugify(unslug), "bu-nch-of1-other-shit")
+
+    def test_k8s_client_owner_mask(self):
+        k8s_obj = V1Deployment(
+            api_version="app/v1",
+            kind="Deployment",
+            metadata=V1ObjectMeta(
+                name="poopydeployment",
+                uid="asdf-sdaf-sadf-sadf-dsaf",
+            ),
+        )
+
+        self.assertEqual(
+            _k8s_client_owner_mask(k8s_obj),
+            {
+                "apiVersion": "app/v1",
+                "kind": "Deployment",
+                "metadata": {
+                    "name": "poopydeployment",
+                    "uid": "asdf-sdaf-sadf-sadf-dsaf",
+                },
+            },
+        )

@@ -1,5 +1,5 @@
 from unittest import TestCase
-from unittest.mock import patch, call
+from unittest.mock import call, patch
 
 from django_operator.kinds import DjangoKind
 from django_operator.services import DeploymentService, PodService
@@ -108,24 +108,26 @@ class DjangoKindTestCase(TestCase):
         ret = django_kind._migrate_resource(purpose="app")
         self.assertEqual(ret, {"deployment": {"app": "poopydeployment"}})
 
-        p_ensure.assert_has_calls([
-            call(
-                namespace="test",
-                template="deployment_app.yaml",
-                parent={"this": "body"},
-                purpose="app",
-                delete=False,
-                enrichments=None,
-                existing=None,
-                **django_kind.base_kwargs,
-            ),
-            call(
-                namespace="test",
-                template="deployment_app.yaml",
-                parent={"this": "body"},
-                purpose="app",
-                delete=True,
-                existing="app-6-9-420",
-                **django_kind.base_kwargs,
-            )
-        ])
+        p_ensure.assert_has_calls(
+            [
+                call(
+                    namespace="test",
+                    template="deployment_app.yaml",
+                    parent={"this": "body"},
+                    purpose="app",
+                    delete=False,
+                    enrichments=None,
+                    existing=None,
+                    **django_kind.base_kwargs,
+                ),
+                call(
+                    namespace="test",
+                    template="deployment_app.yaml",
+                    parent={"this": "body"},
+                    purpose="app",
+                    delete=True,
+                    existing="app-6-9-420",
+                    **django_kind.base_kwargs,
+                ),
+            ]
+        )

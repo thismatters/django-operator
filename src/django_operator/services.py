@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import kubernetes
+import kubernetes.client
 import yaml
 from kubernetes.client.exceptions import ApiException, ApiValueError
 

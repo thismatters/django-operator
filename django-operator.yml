@@ -377,7 +377,7 @@ rules:
     verbs: [get, create, patch]
   - apiGroups: [autoscaling]
     resources: [horizontalpodautoscalers]
-    verbs: [create, patch]
+    verbs: [get, create, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -416,7 +416,7 @@ rules:
     verbs: [list, create, patch, watch, delete]
   - apiGroups: [autoscaling]
     resources: [horizontalpodautoscalers]
-    verbs: [create, patch]
+    verbs: [get, create, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
