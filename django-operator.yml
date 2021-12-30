@@ -175,7 +175,7 @@ spec:
                         default: "200Mi"
                       cpu:
                         type: string
-                        default: "500m"
+                        default: "300m"
                   beat:
                     type: object
                     default: {}
@@ -195,7 +195,7 @@ spec:
                         default: "250Mi"
                       cpu:
                         type: string
-                        default: "500m"
+                        default: "300m"
               commands:
                 type: object
                 properties:
@@ -375,6 +375,9 @@ rules:
   - apiGroups: [networking.k8s.io]
     resources: [ingresses]
     verbs: [get, create, patch]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [create, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -411,6 +414,9 @@ rules:
   - apiGroups: ["apps"]
     resources: [deployments]
     verbs: [list, create, patch, watch, delete]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [create, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
