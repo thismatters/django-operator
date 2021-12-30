@@ -30,7 +30,7 @@ spec:
                 type: string
               clusterIssuer:
                 type: string
-              autoscaler:
+              autoscalers:
                 type: object
                 default: {}
                 properties:

@@ -9,7 +9,7 @@ spec:
   version: "2021.12.1"
   # it is expected that the version will be the tag for the image
   clusterIssuer: letsencrypt
-  autoscaler:
+  autoscalers:
     app:
       cpuUtilizationThreshold: 70
       replicas:
