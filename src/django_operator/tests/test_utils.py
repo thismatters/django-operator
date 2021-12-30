@@ -1,5 +1,6 @@
 from unittest import TestCase
 
+from django_operator.tests.base import PropObject
 from django_operator.utils import merge, slugify, superget
 
 
@@ -20,6 +21,12 @@ class UtilsTestCase(TestCase):
         self.assertEqual(superget(haystack, "a.b.e"), "otherneedle")
         self.assertEqual(superget(haystack, "a.b.c.d"), "needle")
         self.assertEqual(superget(haystack, "n", default=""), "")
+
+        prop_haystack = PropObject(haystack)
+        self.assertEqual(superget(prop_haystack, "f"), "thirdneedle")
+        self.assertEqual(superget(prop_haystack, "a.b.e"), "otherneedle")
+        self.assertEqual(superget(prop_haystack, "a.b.c.d"), "needle")
+        self.assertEqual(superget(prop_haystack, "n", default=""), "")
 
     def test_merge(self):
         target = {"a": 1, "b": {"c": {"d": [{}, {}]}}}

@@ -1,15 +1,9 @@
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import patch, call
 
 from django_operator.kinds import DjangoKind
-from django_operator.services import PodService
-
-class MockLogger:
-    def info(self, *args, **kwargs):
-        pass
-
-    def debug(self, *args, **kwargs):
-        pass
+from django_operator.services import DeploymentService, PodService
+from django_operator.tests.base import MockLogger, PropObject
 
 
 class DjangoKindTestCase(TestCase):
@@ -90,3 +84,48 @@ class DjangoKindTestCase(TestCase):
             existing="poopypod",
             **django_kind.base_kwargs,
         )
+
+    @patch.object(DeploymentService, "ensure")
+    def test_migrate_resource_no_autoscale(self, p_ensure):
+        status = {
+            "created": {"deployment": {"app": "app-6-9-420", "beat": "beat-6-8-4"}}
+        }
+        django_kind = DjangoKind(
+            logger=MockLogger(),
+            status=status,
+            patch={},
+            body={"this": "body"},
+            spec={
+                "host": "test.somewhere.com",
+                "clusterIssuer": "letsencrypt",
+                "version": "6.9.421",
+                "image": "testimage",
+            },
+            namespace="test",
+        )
+
+        p_ensure.return_value = PropObject({"metadata": {"name": "poopydeployment"}})
+        ret = django_kind._migrate_resource(purpose="app")
+        self.assertEqual(ret, {"deployment": {"app": "poopydeployment"}})
+
+        p_ensure.assert_has_calls([
+            call(
+                namespace="test",
+                template="deployment_app.yaml",
+                parent={"this": "body"},
+                purpose="app",
+                delete=False,
+                enrichments=None,
+                existing=None,
+                **django_kind.base_kwargs,
+            ),
+            call(
+                namespace="test",
+                template="deployment_app.yaml",
+                parent={"this": "body"},
+                purpose="app",
+                delete=True,
+                existing="app-6-9-420",
+                **django_kind.base_kwargs,
+            )
+        ])

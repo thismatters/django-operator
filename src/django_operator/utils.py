@@ -14,13 +14,21 @@ def superget(dct, superkey, *, default=None, _raise=None):
     else:
         key = superkey
         remainder = None
-    if key not in dct:
-        if _raise is not None:
-            raise _raise
-        return default
+    if isinstance(dct, (dict,)):
+        if key not in dct:
+            if _raise is not None:
+                raise _raise
+            return default
+        val = dct[key]
+    else:
+        if not hasattr(dct, key):
+            if _raise is not None:
+                raise _raise
+            return default
+        val = getattr(dct, key)
     if not remainder:
-        return dct[key]
-    return superget(dct[key], remainder)
+        return val
+    return superget(val, remainder)
 
 
 def merge(left, right):

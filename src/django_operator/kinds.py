@@ -202,7 +202,6 @@ class DjangoKind:
             enrichments=enrichments,
             existing=green_name,
             template=template,
-            raw=True,
             **kwargs,
         )
         ret = {kind: {purpose: green_obj.metadata.name}}
