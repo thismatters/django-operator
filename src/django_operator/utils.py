@@ -82,8 +82,8 @@ def adopt_sans_labels(objs, owner, *, labels=None):
     owner_mask = owner
     if not isinstance(owner, (dict,)):
         if hasattr(owner, "to_dict"):
-            owner_mask = _k8s_client_owner_mask(owner)
             owner = owner.to_json()
+            owner_mask = _k8s_client_owner_mask(owner)
     owner_name = superget(owner, "metadata.name")
     owner_namespace = superget(owner, "metadata.namespace")
     owner_labels = dict(superget(owner, "metadata.labels", default={}))
