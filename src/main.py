@@ -55,7 +55,7 @@ def start_management_commands(logger, patch, body, status, namespace, **kwargs):
         namespace=namespace,
     )
     logger.info("Setting up redis deployment")
-    patch.status["created"] = django.ensure_redis()
+    created = django.ensure_redis()
     force_migrations = spec.get("alwaysRunMigrations")
     mgmt_pod = None
     migration_version = status.get("migrationVersion", "zero")
@@ -68,7 +68,7 @@ def start_management_commands(logger, patch, body, status, namespace, **kwargs):
         logger.info("Beginning management commands")
         mgmt_pod = django.start_manage_commands()
     patch.metadata.labels["migration-step"] = "mgmt-cmd"
-    return {"pod_name": mgmt_pod}
+    return {"management_pod_name": mgmt_pod, "created": created}
 
 
 @kopf.on.update(
@@ -94,11 +94,11 @@ def complete_management_commands(
         status=status,
         namespace=namespace,
     )
-    pod_name = superget(status, "start_management_commands.pod_name")
+    management_pod_name = superget(status, "start_management_commands.management_pod_name")
 
-    if pod_name:
+    if management_pod_name:
         try:
-            pod_phase = django.pod_phase(pod_name)
+            pod_phase = django.pod_phase(management_pod_name)
         except ApiException:
             pod_phase = "unknown"
         if pod_phase in ("failed", "unknown"):
@@ -111,21 +111,19 @@ def complete_management_commands(
             raise kopf.TemporaryError(
                 "The management commands have not completed. Waiting.", delay=period
             )
-        django.clean_manage_commands(pod_name=pod_name)
+        django.clean_manage_commands(pod_name=management_pod_name)
 
     blue_app = superget(status, "created.deployment.app")
     logger.info("Setting up green app deployment")
     created = django.start_green(purpose="app")
 
     patch.status["migrationVersion"] = django.version
-    patch.status["created"] = created
-    patch.status["start_management_commands"] = None
     patch.metadata.labels["migration-step"] = "green-app"
     if blue_app == superget(created, "deployment.app"):
         # don't bonk out the thing you just created! (just in case the
         #  version didn't change)
         blue_app = None
-    return {"blue_app": blue_app}
+    return {"blue_app": blue_app, "created": created}
 
 
 @kopf.on.update(
@@ -149,9 +147,7 @@ def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
         status=status,
         namespace=namespace,
     )
-    logger.debug(f"{status}")
-    green = superget(status, "created.deployment.app")
-    logger.debug(green)
+    green = superget(status, "complete_management_commands.created.deployment.app")
     if not django.deployment_reached_condition(condition="Available", name=green):
         period = 6
         raise kopf.TemporaryError("Green app not available yet. Waiting.", delay=period)
@@ -167,12 +163,10 @@ def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
     django.clean_blue(purpose="app", blue=blue_app)
 
     kopf.info(body, reason="Ready", message="New config running")
-    logger.info("Migration complete. All that was green is now blue")
+    logger.info("All that was green is now blue")
     patch.status["version"] = django.version
-    patch.status["created"] = created
-    patch.status["complete_management_commands"] = None
     patch.metadata.labels["migration-step"] = "cleanup"
-
+    return {"created": created}
 
 @kopf.on.update(
     "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "cleanup"}
@@ -182,10 +176,43 @@ def complete_migration(logger, patch, spec, status, **kwargs):
     migration process if the spec has changed"""
     deployed_spec = status.get("migrateToSpec")
 
-    _spec = dict(spec)
+    # clean up deployment
+    # accumulate created resources
+    created = {}
+    creating_methods = (
+        "green_app_ready", "start_management_commands", "complete_management_commands"
+    )
+    for method_name in creating_methods:
+        merge(created, superget(status, f"{method_name}.created", default={}))
+        patch.status[method_name] = None
+    patch.status["created"] = created
 
+    # is deployment complete?
+    create_targets = [
+        "deployment.app",
+        "deployment.beat",
+        "deployment.redis",
+        "deployment.worker",
+        # "horizontalpodautoscaler.app",
+        # "horizontalpodautoscaler.worker",
+        "ingress.app",
+        "service.app",
+        "service.redis",
+    ]
+    for purpose in ("app", "worker"):
+        if superget(deployed_spec, f"autoscalers.{purpose}.enabled", default=False):
+            create_targets.append(f"horizontalpodautoscaler.{purpose}")
+    complete = all([superget(created, t) is not None for t in create_targets])
+
+    # ensure latest spec is deployed
+    _spec = dict(spec)
     if deployed_spec == _spec:
-        patch.status["condition"] = "running"
+        if complete:
+            patch.status["condition"] = "running"
+            logger.info("Migration complete.")
+        else:
+            patch.status["condition"] = "degraded"
+            logger.info("Something went wrong; manual intervention required")
         patch.metadata.labels["migration-step"] = "ready"
         patch.status["migrateToSpec"] = None
     else:

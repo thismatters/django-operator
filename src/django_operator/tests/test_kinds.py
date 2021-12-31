@@ -1,5 +1,5 @@
 from unittest import TestCase
-from unittest.mock import call, patch as _patch
+from unittest.mock import call, patch
 
 from django_operator.kinds import DjangoKind
 from django_operator.services import DeploymentService, PodService
@@ -55,7 +55,7 @@ class DjangoKindTestCase(TestCase):
         self.assertEqual(former, None)
         self.assertEqual(existing, "app-6-9-420")
 
-    @_patch.object(PodService, "ensure")
+    @patch.object(PodService, "ensure")
     def test_ensure_kwargs(self, p_ensure):
         status = {
             "created": {"deployment": {"app": "app-6-9-420", "beat": "beat-6-8-4"}}
@@ -85,7 +85,7 @@ class DjangoKindTestCase(TestCase):
             **django_kind.base_kwargs,
         )
 
-    @_patch.object(DeploymentService, "ensure")
+    @patch.object(DeploymentService, "ensure")
     def test_migrate_resource_no_autoscale(self, p_ensure):
         status = {
             "created": {"deployment": {"app": "app-6-9-420", "beat": "beat-6-8-4"}}

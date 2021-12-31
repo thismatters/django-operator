@@ -227,7 +227,6 @@ class UtilsTestCase(TestCase):
         }
         self.assertEqual(superget(haystack, "created.deployment.app"), "app-ee4b5ef0")
 
-
     def test_merge(self):
         target = {"a": 1, "b": {"c": {"d": [{}, {}]}}}
         extension = {
