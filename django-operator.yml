@@ -30,21 +30,61 @@ spec:
                 type: string
               clusterIssuer:
                 type: string
-              replicas:
+              autoscalers:
                 type: object
+                default: {}
                 properties:
                   app:
-                    type: integer
-                    format: int32
-                    minimum: 1
-                    default: 1
+                    type: object
+                    default: {}
+                    properties:
+                      enabled:
+                        type: boolean
+                        default: true
+                      cpuUtilizationThreshold:
+                        type: integer
+                        default: 60
+                      replicas:
+                        type: object
+                        default: {}
+                        properties:
+                          minimum:
+                            type: integer
+                            format: int32
+                            minimum: 1
+                            default: 1
+                          maximum:
+                            type: integer
+                            format: int32
+                            minimum: 1
+                            default: 10
                   worker:
-                    type: integer
-                    format: int32
-                    minimum: 1
-                    default: 1
+                    type: object
+                    default: {}
+                    properties:
+                      enabled:
+                        type: boolean
+                        default: true
+                      cpuUtilizationThreshold:
+                        type: integer
+                        default: 60
+                      replicas:
+                        type: object
+                        default: {}
+                        properties:
+                          minimum:
+                            type: integer
+                            format: int32
+                            minimum: 1
+                            default: 1
+                          maximum:
+                            type: integer
+                            format: int32
+                            minimum: 1
+                            default: 10
               ports:
                 type: object
+                default: {}
                 properties:
                   app:
                     type: integer
@@ -56,6 +96,7 @@ spec:
                     default: 6379
               env:
                 type: array
+                default: []
                 items:
                   type: object
                   properties:
@@ -113,6 +154,7 @@ spec:
                     type: string
               initManageTimeouts:
                 type: object
+                default: {}
                 properties:
                   period:
                     type: integer
@@ -120,6 +162,40 @@ spec:
                   iterations:
                     type: integer
                     default: 20
+              resourceRequests:
+                type: object
+                default: {}
+                properties:
+                  app:
+                    type: object
+                    default: {}
+                    properties:
+                      memory:
+                        type: string
+                        default: "200Mi"
+                      cpu:
+                        type: string
+                        default: "300m"
+                  beat:
+                    type: object
+                    default: {}
+                    properties:
+                      memory:
+                        type: string
+                        default: "200Mi"
+                      cpu:
+                        type: string
+                        default: "100m"
+                  worker:
+                    type: object
+                    default: {}
+                    properties:
+                      memory:
+                        type: string
+                        default: "250Mi"
+                      cpu:
+                        type: string
+                        default: "300m"
               commands:
                 type: object
                 properties:
@@ -158,9 +234,11 @@ spec:
                           type: string
               appProbeSpec:
                 type: object
+                default: {}
                 properties:
                   httpGet:
                     type: object
+                    default: {}
                     properties:
                       scheme:
                         type: string
@@ -297,6 +375,9 @@ rules:
   - apiGroups: [networking.k8s.io]
     resources: [ingresses]
     verbs: [get, create, patch]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [get, create, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -333,6 +414,9 @@ rules:
   - apiGroups: ["apps"]
     resources: [deployments]
     verbs: [list, create, patch, watch, delete]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [get, create, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -5,29 +5,28 @@ from django_operator.kinds import DjangoKind
 from django_operator.utils import merge, superget
 
 
-@kopf.on.update("thismatters.github", "v1alpha", "djangos")
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
+def initial_migration(logger, patch, body, labels, spec, **kwargs):
+    kopf.info(body, reason="Migrating", message="Enacting brand new config")
+    patch.status["condition"] = "migrating"
+    # collect _all_ the data needed for DjangoKind to run, store it in .status
+    patch.status["migrateToSpec"] = dict(spec)
+    patch.metadata.labels["migration-step"] = "starting"
+
+
+@kopf.on.update("thismatters.github", "v1alpha", "djangos", labels={"migration-step": "ready"})
 def begin_migration(logger, patch, body, labels, diff, spec, **kwargs):
     """Trigger the migration pipeline and update object to reflect migrating status"""
 
     # profile the incoming diff and squat on any changes apart from the
     # `migration-step` change
-    migration_step_field = ("metadata", "labels", "migration-step")
     real_changes = False
 
-    for _, field, old, new in diff:
-        if field != migration_step_field:
-            logger.debug(
-                f"Non migration-step field change :: {field} := {old} -> {new}"
-            )
-            if labels.get("migration-step", "ready") == "ready":
-                real_changes = True
-            else:
-                # my assumption here is that a relevant diff doesn't "time out"
-                #  of the queue when other handlers run
-                raise kopf.TemporaryError(
-                    "Cannot start a new migration right now", delay=30
-                )
+    for action, field, old, new in diff:
+        if field[0] != "metadata":
+            logger.debug(f"Non metadata field {action} :: {field} := {old} -> {new}")
+            real_changes = True
+
     if not real_changes:
         logger.debug("Changes appear to only touch migration-step labels; skipping")
         # this is here to test whether a `create` event comes with a diff
@@ -56,7 +55,7 @@ def start_management_commands(logger, patch, body, status, namespace, **kwargs):
         namespace=namespace,
     )
     logger.info("Setting up redis deployment")
-    patch.status["created"] = django.ensure_redis()
+    created = django.ensure_redis()
     force_migrations = spec.get("alwaysRunMigrations")
     mgmt_pod = None
     migration_version = status.get("migrationVersion", "zero")
@@ -69,7 +68,7 @@ def start_management_commands(logger, patch, body, status, namespace, **kwargs):
         logger.info("Beginning management commands")
         mgmt_pod = django.start_manage_commands()
     patch.metadata.labels["migration-step"] = "mgmt-cmd"
-    return {"pod_name": mgmt_pod}
+    return {"management_pod_name": mgmt_pod, "created": created}
 
 
 @kopf.on.update(
@@ -95,10 +94,11 @@ def complete_management_commands(
         status=status,
         namespace=namespace,
     )
-    pod_name = superget(status, "start_management_commands.pod_name")
-    if pod_name:
+    management_pod_name = superget(status, "start_management_commands.management_pod_name")
+
+    if management_pod_name:
         try:
-            pod_phase = django.pod_phase(pod_name)
+            pod_phase = django.pod_phase(management_pod_name)
         except ApiException:
             pod_phase = "unknown"
         if pod_phase in ("failed", "unknown"):
@@ -111,14 +111,19 @@ def complete_management_commands(
             raise kopf.TemporaryError(
                 "The management commands have not completed. Waiting.", delay=period
             )
-        django.clean_manage_commands(pod_name=pod_name)
+        django.clean_manage_commands(pod_name=management_pod_name)
 
-    patch.status["migrationVersion"] = django.version
     blue_app = superget(status, "created.deployment.app")
     logger.info("Setting up green app deployment")
-    patch.status["created"] = django.start_green_app()
+    created = django.start_green(purpose="app")
+
+    patch.status["migrationVersion"] = django.version
     patch.metadata.labels["migration-step"] = "green-app"
-    return {"blue_app": blue_app}
+    if blue_app == superget(created, "deployment.app"):
+        # don't bonk out the thing you just created! (just in case the
+        #  version didn't change)
+        blue_app = None
+    return {"blue_app": blue_app, "created": created}
 
 
 @kopf.on.update(
@@ -142,7 +147,7 @@ def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
         status=status,
         namespace=namespace,
     )
-    green = superget(status, "created.deployment.app")
+    green = superget(status, "complete_management_commands.created.deployment.app")
     if not django.deployment_reached_condition(condition="Available", name=green):
         period = 6
         raise kopf.TemporaryError("Green app not available yet. Waiting.", delay=period)
@@ -155,18 +160,13 @@ def green_app_ready(logger, patch, body, status, namespace, retry, **kwargs):
     merge(created, django.migrate_service())
     blue_app = superget(status, "complete_management_commands.blue_app")
     logger.info("Removing blue app deployment")
-    django.clean_blue_app(blue_app=blue_app)
-    patch.status["version"] = django.version
-    patch.status["replicas"] = {
-        "app": django.base_kwargs["app_replicas"],
-        "worker": django.base_kwargs["worker_replicas"],
-    }
-    patch.status["created"] = created
-    kopf.info(body, reason="Ready", message="New config running")
-    logger.info("Migration complete. All that was green is now blue")
-    patch.metadata.labels["migration-step"] = "cleanup"
-    return {"migrated": True}
+    django.clean_blue(purpose="app", blue=blue_app)
 
+    kopf.info(body, reason="Ready", message="New config running")
+    logger.info("All that was green is now blue")
+    patch.status["version"] = django.version
+    patch.metadata.labels["migration-step"] = "cleanup"
+    return {"created": created}
 
 @kopf.on.update(
     "thismatters.github", "v1alpha", "djangos", labels={"migration-step": "cleanup"}
@@ -175,20 +175,47 @@ def complete_migration(logger, patch, spec, status, **kwargs):
     """Verify that the deployed spec is still the desired spec. Restart the
     migration process if the spec has changed"""
     deployed_spec = status.get("migrateToSpec")
-    _spec = dict(spec)
 
+    # clean up deployment
+    # accumulate created resources
+    created = {}
+    creating_methods = (
+        "green_app_ready", "start_management_commands", "complete_management_commands"
+    )
+    for method_name in creating_methods:
+        merge(created, superget(status, f"{method_name}.created", default={}))
+        patch.status[method_name] = None
+    patch.status["created"] = created
+
+    # is deployment complete?
+    create_targets = [
+        "deployment.app",
+        "deployment.beat",
+        "deployment.redis",
+        "deployment.worker",
+        # "horizontalpodautoscaler.app",
+        # "horizontalpodautoscaler.worker",
+        "ingress.app",
+        "service.app",
+        "service.redis",
+    ]
+    for purpose in ("app", "worker"):
+        if superget(deployed_spec, f"autoscalers.{purpose}.enabled", default=False):
+            create_targets.append(f"horizontalpodautoscaler.{purpose}")
+    complete = all([superget(created, t) is not None for t in create_targets])
+
+    # ensure latest spec is deployed
+    _spec = dict(spec)
     if deployed_spec == _spec:
-        patch.status["condition"] = "running"
+        if complete:
+            patch.status["condition"] = "running"
+            logger.info("Migration complete.")
+        else:
+            patch.status["condition"] = "degraded"
+            logger.info("Something went wrong; manual intervention required")
         patch.metadata.labels["migration-step"] = "ready"
         patch.status["migrateToSpec"] = None
     else:
         logger.info("Object changed during migration. Starting new migration.")
         patch.metadata.labels["migration-step"] = "starting"
         patch.status["migrateToSpec"] = _spec
-    return {"complete": True}
-
-
-# @kopf.on.timer("thismatters.net", "v1alpha", "djangos", interval=30)
-# def scale_deployment(**kwargs):
-#     DjangoKind().scale_deployment(**kwargs)
-#     DjangoKind().scale_deployment(deployment="worker", **kwargs)

@@ -1,0 +1,24 @@
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: "{purpose}-{version_slug}"
+spec:
+  maxReplicas: {max_replicas}
+  minReplicas: {min_replicas}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {cpu_threshold}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: "{deployment_name}"
+status:
+  conditions:
+  - status: "True"
+    type: AbleToScale
+  currentReplicas: {min_replicas}
+  desiredReplicas: {current_replicas}

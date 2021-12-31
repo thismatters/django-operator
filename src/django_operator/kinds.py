@@ -2,8 +2,8 @@ import kopf
 
 from django_operator.services import (
     DeploymentService,
+    HorizontalPodAutoscalerService,
     IngressService,
-    JobService,
     PodService,
     ServiceService,
 )
@@ -12,20 +12,20 @@ from django_operator.utils import merge, slugify, superget
 
 class DjangoKind:
     kind_services = {
-        "deployment": DeploymentService,
-        "service": ServiceService,
-        "ingress": IngressService,
-        "job": JobService,
         "pod": PodService,
+        "ingress": IngressService,
+        "service": ServiceService,
+        "deployment": DeploymentService,
+        "horizontalpodautoscaler": HorizontalPodAutoscalerService,
     }
 
-    def __init__(self, *, logger, patch, body, spec, status, namespace):
+    def __init__(self, *, logger, patch, body, spec, status, namespace, **_):
         self.logger = logger
         try:
             host = spec["host"]
-            cluster_issuer = spec["clusterIssuer"]
-            version = spec["version"]
             _image = spec["image"]
+            version = spec["version"]
+            cluster_issuer = spec["clusterIssuer"]
         except KeyError:
             patch.status["condition"] = "degraded"
             kopf.exception(body, reason="ConfigError", message="")
@@ -35,47 +35,54 @@ class DjangoKind:
 
         image = f"{_image}:{version}"
         version_slug = slugify(version)
+
         self.base_kwargs = {
             "host": host,
-            "cluster_issuer": cluster_issuer,
+            "image": image,
             "version": version,
             "version_slug": version_slug,
-            "image": image,
-            "redis_port": superget(spec, "ports.redis", default=6379),
-            "app_port": superget(spec, "ports.app", default=8000),
-            "app_replicas": superget(
-                status,
-                "replicas.app",
-                default=superget(spec, "replicas.app", default=1),
-            ),
-            "worker_replicas": superget(
-                status,
-                "replicas.worker",
-                default=superget(spec, "replicas.worker", default=1),
-            ),
+            "cluster_issuer": cluster_issuer,
+            "app_port": superget(spec, "ports.app"),
+            "redis_port": superget(spec, "ports.redis"),
+            "app_cpu_request": superget(spec, "resourceRequests.app.cpu"),
+            "beat_cpu_request": superget(spec, "resourceRequests.beat.cpu"),
+            "worker_cpu_request": superget(spec, "resourceRequests.worker.cpu"),
+            "app_memory_request": superget(spec, "resourceRequests.app.memory"),
+            "beat_memory_request": superget(spec, "resourceRequests.beat.memory"),
+            "worker_memory_request": superget(spec, "resourceRequests.worker.memory"),
         }
         self.logger.debug(f"Base kwargs: {self.base_kwargs}")
-        self.namespace = namespace
-        self.host = host
-        self.image = image
-        self.version = version
-        self.version_slug = version_slug
-        self.patch = patch
         self.body = body
+        self.host = host
         self.spec = spec
+        self.image = image
+        self.patch = patch
         self.status = status
+        self.version = version
+        self.namespace = namespace
+        self.version_slug = version_slug
 
-    def _ensure(self, kind, purpose, delete=False, **kwargs):
+    def _ensure_raw(
+        self, kind, purpose, delete=False, template=None, parent=None, **kwargs
+    ):
         kind_service_class = self.kind_services[kind]
+        if template is None:
+            template = f"{kind}_{purpose}.yaml"
+        if parent is None:
+            parent = self.body
         obj = kind_service_class(logger=self.logger).ensure(
             namespace=self.namespace,
-            template=f"{kind}_{purpose}.yaml",
-            parent=self.body,
+            template=template,
+            parent=parent,
             purpose=purpose,
             delete=delete,
             **kwargs,
             **self.base_kwargs,
         )
+        return obj
+
+    def _ensure(self, kind, purpose, delete=False, **kwargs):
+        obj = self._ensure_raw(kind, purpose, delete=delete, **kwargs)
         if not delete:
             return {kind: {purpose: obj.metadata.name}}
         return {}
@@ -87,10 +94,10 @@ class DjangoKind:
         return pod.status.phase.lower()
 
     def deployment_reached_condition(self, *, name, condition):
+        self.logger.debug(f"within deployment_reached_condition: name= {name}")
         deployment = DeploymentService(logger=self.logger).read_status(
             namespace=self.namespace, name=name
         )
-        self.logger.debug(f"deployment conditions: {deployment.status.conditions}")
         if deployment.status.conditions is None:
             return False
         for _condition in deployment.status.conditions:
@@ -159,8 +166,8 @@ class DjangoKind:
             delete=True,
         )
 
-    def _deployment_names(self, *, purpose):
-        existing = superget(self.status, f"created.deployment.{purpose}", default="")
+    def _resource_names(self, *, kind, purpose):
+        existing = superget(self.status, f"created.{kind}.{purpose}", default="")
 
         # see if the version changed
         if existing and existing.endswith(self.version_slug):
@@ -170,30 +177,72 @@ class DjangoKind:
             existing = None
         return former, existing
 
-    def _migrate_deployment(self, *, purpose, enrichments, skip_delete=False):
-        former_deployment, existing_deployment = self._deployment_names(
+    def _migrate_resource(
+        self,
+        *,
+        purpose,
+        enrichments=None,
+        kind="deployment",
+        template=None,
+        skip_delete=False,
+        **kwargs,
+    ):
+        blue_name, green_name = self._resource_names(
+            kind=kind,
             purpose=purpose,
         )
         self.logger.debug(
-            f"migrate {purpose} => former = {former_deployment} :: "
-            f"existing = {existing_deployment} :: skip_delete = {skip_delete}"
+            f"migrate {purpose} {kind} => former = {blue_name} :: "
+            f"existing = {green_name} :: skip_delete = {skip_delete}"
         )
 
         # bring up the green deployment
-        ret = self._ensure(
+        green_obj = self._ensure_raw(
             kind="deployment",
             purpose=purpose,
             enrichments=enrichments,
-            existing=existing_deployment,
+            existing=green_name,
+            template=template,
+            **kwargs,
         )
+        ret = {kind: {purpose: green_obj.metadata.name}}
 
-        # bring down the blue deployment
-        if former_deployment and not skip_delete:
+        if kind == "deployment":
+            # create horizontal pod autoscaling if appropriate
+            hpa_details = superget(self.spec, f"autoscalers.{purpose}", default={})
+            if hpa_details.get("enabled", False):
+                hpa_kwargs = {
+                    "deployment_name": green_obj.metadata.name,
+                    "cpu_threshold": hpa_details["cpuUtilizationThreshold"],
+                    "max_replicas": superget(hpa_details, "replicas.maximum"),
+                    "min_replicas": superget(hpa_details, "replicas.minimum"),
+                    "current_replicas": green_obj.spec.replicas,
+                }
+
+                if blue_name:
+                    blue_obj = DeploymentService(logger=self.logger).read(
+                        namespace=self.namespace,
+                        name=blue_name,
+                    )
+                    hpa_kwargs.update({"current_replicas": blue_obj.spec.replicas})
+                merge(
+                    ret,
+                    self._ensure(
+                        kind="horizontalpodautoscaler",
+                        purpose=purpose,
+                        template="horizontalpodautoscaler.yaml",
+                        parent=green_obj,
+                        **hpa_kwargs,
+                    ),
+                )
+
+        # bring down the blue_obj deployment
+        if blue_name and not skip_delete:
             self.logger.debug(f"migrate {purpose} => doing delete")
             self._ensure(
                 kind="deployment",
                 purpose=purpose,
-                existing=former_deployment,
+                existing=blue_name,
                 delete=True,
             )
         return ret
@@ -235,40 +284,41 @@ class DjangoKind:
             }
         }
 
-    def start_green_app(self):
-        enrichments = self._base_enrichments(spec=self.spec, purpose="app")
-        enrichments["spec"]["template"]["spec"][("containers", 0)].update(
-            {
-                "livenessProbe": self.spec.get("appProbeSpec", {}),
-                "readinessProbe": self.spec.get("appProbeSpec", {}),
-            }
-        )
-        return self._migrate_deployment(
+    def start_green(self, *, purpose):
+        enrichments = self._base_enrichments(spec=self.spec, purpose=purpose)
+        if purpose == "app":
+            enrichments["spec"]["template"]["spec"][("containers", 0)].update(
+                {
+                    "livenessProbe": self.spec.get("appProbeSpec", {}),
+                    "readinessProbe": self.spec.get("appProbeSpec", {}),
+                }
+            )
+        return self._migrate_resource(
             purpose="app",
             enrichments=enrichments,
             skip_delete=True,
         )
 
-    def clean_blue_app(self, blue_app):
-        if blue_app:
-            self.logger.debug("migrate app => doing delete")
+    def clean_blue(self, *, purpose, blue):
+        if blue:
+            self.logger.debug(f"migrate {purpose} => doing delete")
             self._ensure(
                 kind="deployment",
-                purpose="app",
-                existing=blue_app,
+                purpose=purpose,
+                existing=blue,
                 delete=True,
             )
 
     def migrate_worker(self):
         # worker data gathering
-        return self._migrate_deployment(
+        return self._migrate_resource(
             purpose="worker",
             enrichments=self._base_enrichments(spec=self.spec, purpose="worker"),
         )
 
     def migrate_beat(self):
         # beat data gathering
-        return self._migrate_deployment(
+        return self._migrate_resource(
             purpose="beat",
             enrichments=self._base_enrichments(spec=self.spec, purpose="beat"),
         )
@@ -286,40 +336,3 @@ class DjangoKind:
             self._ensure(kind="ingress", purpose="app", common_name=common_name),
         )
         return ret
-
-    def scale_deployment(
-        *, namespace, body, spec, status, patch, deployment="app", **kwargs
-    ):
-        min_count = superget(spec, f"replicas.{deployment}", default=1)
-        replica_count = superget(status, f"replicas.{deployment}", default=0)
-        desired_count = replica_count
-        # To actually get this we need the k8s metrics server
-        # https://docs.aws.amazon.com/eks/latest/userguide/metrics-server.html
-        # and possibly make a PodMetrics resource; might be more trouble than
-        # it's worth right now
-        overall_cpu = 0.69  # IDK how to get this really
-        if overall_cpu > 0.85:
-            desired_count += 1
-        elif overall_cpu < 0.5:
-            desired_count -= 1
-        desired_count = max(10, min(min_count, desired_count))
-
-        if desired_count == replica_count:
-            return
-        try:
-            deployment_name = superget(
-                status,
-                f"created.{deployment}",
-                _raise=Exception(f"missing {deployment} deployment"),
-            )
-        except Exception:
-            kopf.warn(body, reason="ScalingError", message="Cannot scale:")
-            raise kopf.TemporaryError("Deployment is not ready yet", delay=45)
-
-        deployment_name = status.get("created", {}).get(deployment)
-        DeploymentService().ensure(
-            namespace=namespace,
-            existing=deployment_name,
-            body={"spec": {"replicas": desired_count}},
-        )
-        patch.status["replicas"][deployment] = desired_count

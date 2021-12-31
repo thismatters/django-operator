@@ -1,11 +1,10 @@
 from pathlib import Path
 
-import kopf
-import kubernetes
+import kubernetes.client
 import yaml
 from kubernetes.client.exceptions import ApiException, ApiValueError
 
-from django_operator.utils import merge, superget
+from django_operator.utils import adopt_sans_labels, merge, superget
 
 # The useful page
 # https://github.com/kubernetes-client/python/blob/master/kubernetes/README.md
@@ -69,6 +68,9 @@ class BaseService:
                 raise
         return body
 
+    def read(self, **kwargs):
+        return self._read(**kwargs)
+
     def ensure(
         self,
         *,
@@ -92,7 +94,8 @@ class BaseService:
             else:
                 raise Exception("wtf")  # config error
             _body = self._enrich_manifest(body=_body, enrichments=enrichments)
-            kopf.adopt(_body, owner=parent)
+            adopt_sans_labels(_body, owner=parent, labels=("migration-step",))
+            self.logger.debug(f"{_body}")
         if not existing:
             # look for an existing resource anyway
             try:
@@ -140,15 +143,6 @@ class IngressService(BaseService):
     api_klass = "NetworkingV1Api"
 
 
-# deprecated!
-class JobService(BaseService):
-    read_method = "read_namespaced_job"
-    delete_method = "delete_namespaced_job"
-    patch_method = "patch_namespaced_job"
-    post_method = "create_namespaced_job"
-    api_klass = "BatchV1Api"
-
-
 class PodService(BaseService):
     """Now _this_ is what I call pod servicing!"""
 
@@ -157,3 +151,11 @@ class PodService(BaseService):
     patch_method = "patch_namespaced_pod"
     post_method = "create_namespaced_pod"
     read_status_method = "read_namespaced_pod_status"
+
+
+class HorizontalPodAutoscalerService(BaseService):
+    read_method = "read_namespaced_horizontal_pod_autoscaler"
+    delete_method = "delete_namespaced_horizontal_pod_autoscaler"
+    patch_method = "patch_namespaced_horizontal_pod_autoscaler"
+    post_method = "create_namespaced_horizontal_pod_autoscaler"
+    api_klass = "AutoscalingV1Api"
