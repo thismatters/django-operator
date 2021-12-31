@@ -53,7 +53,7 @@ spec:
   - ["create_groups"]
   - ["ensure_contract_pricing"]
   - ["initialize_payment_webhooks"]
-  - ["loaddata", "money_positive/fixtures/us_states.json"]
+  - ["loaddata", "example_project/fixtures/us_states.json"]
   initManageTimeouts:
     period: 6
     iterations: 10
@@ -62,21 +62,21 @@ spec:
       command:
       - "gunicorn"
       args:
-      - "money_positive.wsgi:application"
+      - "example_project.wsgi:application"
       - "-b"
       - "0.0.0.0:8000"
     worker:
       command:
       - "celery"
       args:
-      - "--app=money_positive"
+      - "--app=example_project"
       - "worker"
       - "--loglevel=INFO"
     beat:
       command:
       - "celery"
       args:
-      - "--app=money_positive"
+      - "--app=example_project"
       - "beat"
       - "--loglevel=INFO"
       - "--scheduler"
@@ -89,7 +89,7 @@ spec:
       port: 8000
       httpHeaders:
       - name: Host
-        value: app.moneypositive.coop
+        value: app.exampleproject.coop
     initialDelaySeconds: 45
     periodSeconds: 11
     timeoutSeconds: 2
@@ -112,3 +112,102 @@ status:
       app: app-service
     ingress:
       app: app-ingress
+
+---
+# these are the required fields
+apiVersion: thismatters.github/v1alpha
+kind: Django
+metadata:
+  name: example-project
+  namespace: example
+spec:
+  host: app.example.com
+  image: registry.example.com/repo/project
+  version: "2021.12.1"
+  # it is expected that the version will be the tag for the image
+  clusterIssuer: letsencrypt
+  commands:
+    app:
+      command:
+      - "gunicorn"
+      args:
+      - "example_project.wsgi:application"
+      - "-b"
+      - "0.0.0.0:8000"
+    worker:
+      command:
+      - "celery"
+      args:
+      - "--app=example_project"
+      - "worker"
+      - "--loglevel=INFO"
+    beat:
+      command:
+      - "celery"
+      args:
+      - "--app=example_project"
+      - "beat"
+      - "--loglevel=INFO"
+      - "--scheduler"
+      - "django_celery_beat.schedulers:DatabaseScheduler"
+      - "--pidfile='/tmp/celerybeat.pid'"
+  appProbeSpec:
+    httpGet:
+      httpHeaders:
+      - name: Host
+        value: app.exampleproject.coop
+
+---
+# these are the default values
+apiVersion: thismatters.github/v1alpha
+kind: Django
+metadata:
+  name: example-project
+  namespace: example
+spec:
+  autoscalers:
+    app:
+      enabled: true
+      cpuUtilizationThreshold: 60
+      replicas:
+        minimum: 1
+        maximum: 10
+    worker:
+      enabled: true
+      cpuUtilizationThreshold: 60
+      replicas:
+        minimum: 1
+        maximum: 10
+  resourceRequests:
+    app:
+      memory: "200Mi"
+      cpu: "300m"
+    beat:
+      memory: "200Mi"
+      cpu: "100m"
+    worker:
+      memory: "250Mi"
+      cpu: "300m"
+  ports:
+    app: 8000
+    redis: 6379
+  env: []
+  envFromConfigMapRefs: []
+  envFromSecretRefs: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []
+  alwaysRunMigrations: false
+  initManageCommands: []
+  initManageTimeouts:
+    period: 12
+    iterations: 20
+  appProbeSpec:
+    httpGet:
+      scheme: HTTP
+      path: /
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3

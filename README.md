@@ -49,16 +49,18 @@ See [sample.yaml](sample.yaml) for a sample manifest for a django app.
 * [x] deploy
 
 ### v0.1.0
-* [ ] unittests!
-* [ ] documentation for users
-* [ ] manage a database; to facilitate smoke-test deployments -- allow deployment to be defined in the django manifest
 * [x] better logging
 * [x] de-monolith the process
 * [x] labels ("migration-step": "green-app") are contaminating the ingresses
-* [ ] more active monitoring of child resources (prevent deletion, &c.)
 * [x] incorporate metrics from metric server into autoscaling. (use horizontal pod autoscaling instead!)
+* [ ] unittests!
+* [ ] documentation for users
+* [ ] more active monitoring of child resources (prevent deletion, &c.)
 * [ ] Better tracking of objects as they are created for garbage collection in event of failed migration, more robust cleanup should include garbage collection
 * [ ] More paths to the cleanup step
+* [ ] Explore a more declarative pattern
+* [ ] Consider restructuring the CRD to have sections for each purpose (`{"app": {"xyz": "val", "abc": "val"}}` as opposed to `{"xyz": {"app": "val", "worker": "val"}}`)
 
 ### v0.2.0
-* [ ] allow other manifests (deployments, ingresses, services) to be set in django manifest.
+* [ ] allow other manifests (deployments, ingresses, services) to be set in django manifest
+* [ ] manage a database; to facilitate smoke-test deployments -- allow deployment to be defined in the django manifest
