@@ -14,18 +14,11 @@ def superget(dct, superkey, *, default=None, _raise=None):
     else:
         key = superkey
         remainder = None
-    if isinstance(dct, (dict,)):
-        if key not in dct:
-            if _raise is not None:
-                raise _raise
-            return default
-        val = dct[key]
-    else:
-        if not hasattr(dct, key):
-            if _raise is not None:
-                raise _raise
-            return default
-        val = getattr(dct, key)
+    if key not in dct:
+        if _raise is not None:
+            raise _raise
+        return default
+    val = dct[key]
     if not remainder:
         return val
     return superget(val, remainder, default=default, _raise=_raise)
@@ -86,13 +79,15 @@ def _k8s_client_owner_mask(k8s_obj):
 
 
 def adopt_sans_labels(objs, owner, *, labels=None):
+    owner_mask = owner
+    if not isinstance(owner, (dict,)):
+        if hasattr(owner, "to_dict"):
+            owner_mask = _k8s_client_owner_mask(owner)
+            owner = owner.to_json()
     owner_name = superget(owner, "metadata.name")
     owner_namespace = superget(owner, "metadata.namespace")
     owner_labels = dict(superget(owner, "metadata.labels", default={}))
-    if not isinstance(owner, (dict,)):
-        if hasattr(owner, "to_dict"):
-            owner = _k8s_client_owner_mask(owner)
-    append_owner_reference(objs, owner=owner)
+    append_owner_reference(objs, owner=owner_mask)
     harmonize_naming(objs, name=owner_name)
     adjust_namespace(objs, namespace=owner_namespace)
 
