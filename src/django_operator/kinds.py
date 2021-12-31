@@ -212,7 +212,7 @@ class DjangoKind:
             hpa_details = superget(self.spec, f"autoscalers.{purpose}", default={})
             if hpa_details.get("enabled", False):
                 hpa_kwargs = {
-                    "deployment_name": green_name,
+                    "deployment_name": green_obj.metadata.name,
                     "cpu_threshold": hpa_details["cpuUtilizationThreshold"],
                     "max_replicas": superget(hpa_details, "replicas.maximum"),
                     "min_replicas": superget(hpa_details, "replicas.minimum"),
