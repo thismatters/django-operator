@@ -180,13 +180,13 @@ spec:
         maximum: 10
   resourceRequests:
     app:
-      memory: "200Mi"
+      memory: "100Mi"
       cpu: "300m"
     beat:
-      memory: "200Mi"
-      cpu: "100m"
+      memory: "100Mi"
+      cpu: "50m"
     worker:
-      memory: "250Mi"
+      memory: "200Mi"
       cpu: "300m"
   ports:
     app: 8000

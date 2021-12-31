@@ -172,7 +172,7 @@ spec:
                     properties:
                       memory:
                         type: string
-                        default: "200Mi"
+                        default: "100Mi"
                       cpu:
                         type: string
                         default: "300m"
@@ -182,17 +182,17 @@ spec:
                     properties:
                       memory:
                         type: string
-                        default: "200Mi"
+                        default: "100Mi"
                       cpu:
                         type: string
-                        default: "100m"
+                        default: "50m"
                   worker:
                     type: object
                     default: {}
                     properties:
                       memory:
                         type: string
-                        default: "250Mi"
+                        default: "200Mi"
                       cpu:
                         type: string
                         default: "300m"
@@ -276,7 +276,7 @@ spec:
                   failureThreshold:
                     type: integer
                     format: int32
-                    default: 3
+                    default: 6
           status:
             type: object
             x-kubernetes-preserve-unknown-fields: true
@@ -319,7 +319,7 @@ spec:
       serviceAccountName: django-account
       containers:
       - name: operator
-        image: registry.gitlab.com/thismatters/django-operator:latest
+        image: registry.gitlab.com/thismatters/django-operator:latest-declarative-pattern
 ---
 apiVersion: v1
 kind: ServiceAccount
