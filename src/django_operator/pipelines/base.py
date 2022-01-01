@@ -38,7 +38,7 @@ class BaseWaitingStep(BasePipelineStep):
                 "Manual intervention required!"
             )
 
-    def is_ready(self):
+    def is_ready(self, *, context):
         raise NotImplementedError()
 
     def handle(self, *, context):
@@ -52,11 +52,11 @@ class BaseWaitingStep(BasePipelineStep):
 
 
 class StepDetails:
-    def __init__(self, *, index, value, klass, next_value):
+    def __init__(self, *, index, name, klass, next_step_name):
         self.index = index
-        self.value = value
+        self.name = name
         self.klass = klass
-        self.next_value = next_value
+        self.next_step_name = next_step_name
 
 
 class BasePipeline:
