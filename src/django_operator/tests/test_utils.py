@@ -2,7 +2,6 @@ from unittest import TestCase
 
 from kubernetes.client import V1Deployment, V1ObjectMeta
 
-from django_operator.tests.base import PropObject
 from django_operator.utils import (
     _k8s_client_owner_mask,
     merge,
@@ -29,13 +28,6 @@ class UtilsTestCase(TestCase):
         self.assertEqual(superget(haystack, "a.b.c.d"), "needle")
         self.assertEqual(superget(haystack, "a.b.g", default={}), {})
         self.assertEqual(superget(haystack, "n", default=""), "")
-
-        prop_haystack = PropObject(haystack)
-        self.assertEqual(superget(prop_haystack, "f"), "thirdneedle")
-        self.assertEqual(superget(prop_haystack, "a.b.e"), "otherneedle")
-        self.assertEqual(superget(prop_haystack, "a.b.c.d"), "needle")
-        self.assertEqual(superget(prop_haystack, "a.b.g", default={}), {})
-        self.assertEqual(superget(prop_haystack, "n", default=""), "")
 
     def test_real_superget(self):
         haystack = {
@@ -222,7 +214,7 @@ class UtilsTestCase(TestCase):
         )
 
         self.assertEqual(
-            _k8s_client_owner_mask(k8s_obj),
+            _k8s_client_owner_mask(k8s_obj.to_dict()),
             {
                 "apiVersion": "app/v1",
                 "kind": "Deployment",
