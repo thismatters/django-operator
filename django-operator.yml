@@ -319,7 +319,7 @@ spec:
       serviceAccountName: django-account
       containers:
       - name: operator
-        image: registry.gitlab.com/thismatters/django-operator:latest-declarative-pattern
+        image: registry.gitlab.com/thismatters/django-operator:latest
 ---
 apiVersion: v1
 kind: ServiceAccount
