@@ -18,10 +18,7 @@ class DjangoKindMixin:
     @property
     def django(self):
         if self._django is None:
-            self._django = DjangoKind(
-                spec=self.spec,
-                **self.kwargs,
-            )
+            self._django = DjangoKind(**self.kwargs)
         return self._django
 
 
