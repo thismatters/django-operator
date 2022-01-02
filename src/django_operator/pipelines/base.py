@@ -76,6 +76,7 @@ class BasePipeline:
             spec = self.__spec
             self.patch.status["pipelineSpec"] = dict(spec)
         self.spec = spec
+        kwargs.update({"spec": spec})
         self.kwargs = kwargs
         self.step_names = [s.name for s in self.steps]
 
