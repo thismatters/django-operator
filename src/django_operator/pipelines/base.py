@@ -8,10 +8,8 @@ class BasePipelineStep:
     attribute_kwargs = ("logger", "patch", "status", "retry", "spec")
 
     def __init__(self, **kwargs):
-        # this handling of kwargs could move up a level to the pipeline itself, probably.
         for attr in self.attribute_kwargs:
             setattr(self, attr, kwargs.get(attr))
-        # self.spec = spec
         self.kwargs = kwargs
         super().__init__()
 
@@ -81,8 +79,6 @@ class BasePipeline:
 
     @classmethod
     def is_step_name(cls, value, **_):
-        # must be a positional arg with a name that doesn't appear in the
-        #   kopf kwargs
         if value in (cls.waiting_step_name, cls.complete_step_name):
             return True
         for step in cls.steps:
@@ -95,8 +91,6 @@ class BasePipeline:
         self.patch.metadata.labels[self.label] = self.step_names[0]
 
     def finalize_pipeline(self, *, context):
-        # TODO: might need to remove all the keys in context...
-        # clean = {f"{k}": None for k in context.keys()}
         self.patch.status[self.update_handler_name] = None
         return None
 

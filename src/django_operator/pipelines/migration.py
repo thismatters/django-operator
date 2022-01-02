@@ -80,7 +80,6 @@ class StartGreenAppStep(BasePipelineStep, DjangoKindMixin):
             # don't bonk out the thing you just created! (just in case the
             #  version didn't change)
             blue_app = None
-        # patch.metadata.labels["migration-step"] = "green-app"
         return {"blue_app": blue_app, "created": created}
 
 
