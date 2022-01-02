@@ -56,15 +56,19 @@ class BasePipelineTestCase(TestCase):
         self.assertEqual(pipeline.spec, existing)
         self.assertEqual(self.kwargs["patch"].status, {})
 
+    @patch.object(BasePipeline, "label", "test-pipeline")
     @patch.object(BasePipeline, "steps", [ThingWithName, OtherThingWithName])
     def test_step_names_basic(self):
         pipeline = BasePipeline(**self.kwargs)
         self.assertEqual(pipeline.step_names, ["i-have-a-name", "i-also-have-a-name"])
-        self.assertTrue(BasePipeline.is_step_name("ready"))
-        self.assertTrue(BasePipeline.is_step_name("done"))
-        self.assertTrue(BasePipeline.is_step_name("i-have-a-name"))
+
+        self.assertTrue(BasePipeline.is_step_name(labels={"test-pipeline": "ready"}))
+        self.assertTrue(BasePipeline.is_step_name(labels={"test-pipeline": "done"}))
+        self.assertTrue(BasePipeline.is_step_name(labels={"test-pipeline": "i-have-a-name"}))
         self.assertFalse(
-            BasePipeline.is_step_name("fuck-you-i-wont-do-what-you-tell-me")
+            BasePipeline.is_step_name(labels=
+                {"test-pipeline": "fuck-you-i-wont-do-what-you-tell-me"}
+            )
         )
 
     @patch.object(BasePipeline, "steps", [ThingWithName, OtherThingWithName])
