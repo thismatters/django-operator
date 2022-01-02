@@ -90,7 +90,7 @@ class AwaitGreenAppStep(BaseWaitingStep, DjangoKindMixin):
 
     def is_ready(self, *, context):
         return self.django.deployment_reached_condition(
-            condition="Available", name=context.get("created.deployment.app")
+            condition="Available", name=superget(context, "created.deployment.app")
         )
 
 
@@ -104,7 +104,7 @@ class MigrateServiceStep(BasePipelineStep, DjangoKindMixin):
         merge(created, self.django.migrate_beat())
         self.logger.info("Migrating service to green app deployment")
         merge(created, self.django.migrate_service())
-        blue_app = superget(self.status, "complete_management_commands.blue_app")
+        blue_app = superget(context, "blue_app")
         self.logger.info("Removing blue app deployment")
         self.django.clean_blue(purpose="app", blue=blue_app)
         self.logger.info("All that was green is now blue")
