@@ -96,8 +96,9 @@ class BasePipeline:
 
     def finalize_pipeline(self, *, context):
         # TODO: might need to remove all the keys in context...
-        clean = {k: None for k in context.keys()}
-        return clean
+        # clean = {f"{k}": None for k in context.keys()}
+        self.patch.status[self.update_handler_name] = None
+        return None
 
     def resolve_step(self, step_name):
         step_index = self.step_names.index(step_name)
