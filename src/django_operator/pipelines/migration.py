@@ -12,7 +12,6 @@ from django_operator.utils import merge, superget
 
 class DjangoKindMixin:
     def __init__(self):
-        self.logger.debug("did DjangoKindMixin.__init__")
         self._django = None
 
     @property
@@ -153,7 +152,7 @@ class MigrationPipeline(BasePipeline):
         return {}
 
     def finalize_pipeline(self, *, context):
-        if self.spec == self.__spec:
+        if self.spec == self._spec:
             if context.get("migration_complete", False):
                 self.patch.status["condition"] = "running"
                 self.logger.info("Migration complete.")
@@ -166,5 +165,5 @@ class MigrationPipeline(BasePipeline):
         else:
             self.logger.info("Object changed during migration. Starting new migration.")
             self.patch.metadata.labels[self.label] = self.step_names[0]
-            self.patch.status["pipelineSpec"] = self.__spec
+            self.patch.status["pipelineSpec"] = self._spec
         super().finalize_pipeline(context=context)

@@ -30,7 +30,7 @@ class BaseWaitingStep(BasePipelineStep):
         max_retries = superget(
             self.spec, self.iterations_key, default=self.iterations_default
         )
-        self.logger.debug(f"Retry count {self.retry}")
+        self.logger.info(f"Retry count {self.retry}")
         if self.retry >= max_retries:
             self.patch.status["condition"] = "degraded"
             raise kopf.PermanentError(
@@ -68,12 +68,12 @@ class BasePipeline:
     update_handler_name = "pipeline"
 
     def __init__(self, **kwargs):
-        self.__spec = kwargs.pop("spec")
+        self._spec = kwargs.pop("spec")
         for attr in self.attribute_kwargs:
             setattr(self, attr, kwargs.get(attr))
         spec = self.status.get("pipelineSpec")
         if spec is None:
-            spec = self.__spec
+            spec = self._spec
             self.patch.status["pipelineSpec"] = dict(spec)
         self.spec = spec
         kwargs.update({"spec": spec})
@@ -144,6 +144,7 @@ class BasePipeline:
     def handle(self):
         # get label value
         step_name = self.labels.get(self.label)
+        self.logger.info(f"Running pipeline step {step_name}")
         if step_name == self.waiting_step_name:
             return self.handle_initiate()
         if step_name == self.complete_step_name:
