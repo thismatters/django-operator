@@ -81,6 +81,8 @@ class BasePipeline:
 
     @classmethod
     def is_step_name(cls, value, **_):
+        # must be a positional arg with a name that doesn't appear in the
+        #   kopf kwargs
         if value in (cls.waiting_step_name, cls.complete_step_name):
             return True
         for step in cls.steps:
