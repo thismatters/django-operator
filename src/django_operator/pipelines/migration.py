@@ -69,7 +69,7 @@ class AwaitManagementCommandsStep(BaseWaitingStep, DjangoKindMixin):
         return True
 
 
-class StartGreenAppStep(BasePipelineStep):
+class StartGreenAppStep(BasePipelineStep, DjangoKindMixin):
     name = "start-app"
 
     def handle(self, *, context):
@@ -94,7 +94,7 @@ class AwaitGreenAppStep(BaseWaitingStep, DjangoKindMixin):
         )
 
 
-class MigrateServiceStep(BasePipelineStep):
+class MigrateServiceStep(BasePipelineStep, DjangoKindMixin):
     name = "migrate-service"
 
     def handle(self, *, context):
