@@ -2,7 +2,7 @@ import kopf
 from kubernetes.client.exceptions import ApiException
 
 from django_operator.kinds import DjangoKind
-from django_operator.pipeline.base import (
+from django_operator.pipelines.base import (
     BasePipeline,
     BasePipelineStep,
     BaseWaitingStep,

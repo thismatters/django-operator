@@ -53,12 +53,12 @@ See [sample.yaml](sample.yaml) for a sample manifest for a django app.
 * [x] de-monolith the process
 * [x] labels ("migration-step": "green-app") are contaminating the ingresses
 * [x] incorporate metrics from metric server into autoscaling. (use horizontal pod autoscaling instead!)
-* [ ] unittests!
+* [x] unittests! -- could probably still use more tho
+* [x] Explore a more declarative pattern
 * [ ] documentation for users
 * [ ] more active monitoring of child resources (prevent deletion, &c.)
 * [ ] Better tracking of objects as they are created for garbage collection in event of failed migration, more robust cleanup should include garbage collection
 * [ ] More paths to the cleanup step
-* [ ] Explore a more declarative pattern
 * [ ] Consider restructuring the CRD to have sections for each purpose (`{"app": {"xyz": "val", "abc": "val"}}` as opposed to `{"xyz": {"app": "val", "worker": "val"}}`)
 
 ### v0.2.0
