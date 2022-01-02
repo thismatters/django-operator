@@ -14,9 +14,7 @@ def initial_migration(patch, body, **kwargs):
     "thismatters.github",
     "v1alpha",
     "djangos",
-    labels={
-        MigrationPipeline.label: lambda value, **_: MigrationPipeline.is_step_name(value)
-    },
+    labels={MigrationPipeline.label: MigrationPipeline.is_step_name},
 )
 def migration_pipeline(**kwargs):
     return MigrationPipeline(**kwargs).handle()

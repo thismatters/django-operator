@@ -74,7 +74,7 @@ class BasePipeline:
         spec = self.status.get("pipelineSpec")
         if spec is None:
             spec = self.__spec
-            self.patch.status["pipelineSpec"] = spec
+            self.patch.status["pipelineSpec"] = dict(spec)
         self.spec = spec
         self.kwargs = kwargs
         self.step_names = [s.name for s in self.steps]
