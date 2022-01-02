@@ -80,7 +80,7 @@ class BasePipeline:
         self.step_names = [s.name for s in self.steps]
 
     @classmethod
-    def is_step_name(cls, *, labels, **_):
+    def is_step_name(cls, spec, *, labels, **_):
         name = labels.get(cls.label)
         if name in (cls.waiting_step_name, cls.complete_step_name):
             return True
