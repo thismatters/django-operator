@@ -74,7 +74,6 @@ class BasePipeline:
         spec = self.status.get("pipelineSpec")
         if spec is None:
             spec = self._spec
-            self.patch.status["pipelineSpec"] = dict(spec)
         self.spec = spec
         kwargs.update({"spec": spec})
         self.kwargs = kwargs
@@ -92,11 +91,13 @@ class BasePipeline:
         return False
 
     def initiate_pipeline(self):
+        self.patch.status["pipelineSpec"] = dict(self.spec)
         self.patch.metadata.labels[self.label] = self.step_names[0]
 
     def finalize_pipeline(self, *, context):
         # TODO: might need to remove all the keys in context...
-        return None
+        clean = {k: None for k in context.keys()}
+        return clean
 
     def resolve_step(self, step_name):
         step_index = self.step_names.index(step_name)
@@ -112,7 +113,7 @@ class BasePipeline:
     def has_real_changes(self):
         for action, field, old, new in self.diff:
             if field[0] != "metadata":
-                self.logger.debug(
+                self.logger.info(
                     f"Non metadata field {action} :: {field} := {old} -> {new}"
                 )
                 return True
@@ -122,7 +123,7 @@ class BasePipeline:
         if self.has_real_changes():
             return self.initiate_pipeline()
         else:
-            self.logger.debug(
+            self.logger.info(
                 f"Changes appear to only touch {self.label} labels; skipping"
             )
             return None
@@ -144,7 +145,7 @@ class BasePipeline:
     def handle(self):
         # get label value
         step_name = self.labels.get(self.label)
-        self.logger.info(f"Running pipeline step {step_name}")
+        self.logger.info(f"Running pipeline step {step_name!r}")
         if step_name == self.waiting_step_name:
             return self.handle_initiate()
         if step_name == self.complete_step_name:
