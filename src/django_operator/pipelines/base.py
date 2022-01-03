@@ -150,7 +150,7 @@ class BasePipeline:
 
     def monitor(self):
         problem = False
-        for kind, data in status.get("created").items():
+        for kind, data in self.status.get("created").items():
             for purpose, name in data.items():
                 try:
                     obj = self.django.read_resource(kind=kind, purpose=purpose, name=name)
