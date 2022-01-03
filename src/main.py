@@ -1,6 +1,9 @@
 import kopf
 
-from django_operator.pipelines.migration import MigrationPipeline
+from django_operator.pipelines.migration import (
+    MigrationPipeline,
+    MonitorException,
+)
 
 
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
@@ -31,8 +34,12 @@ def monitor_resources(stopped, **kwargs):
 
     Trigger the migration process if anything is missing.
     """
-    while not stopped:
-        MigrationPipeline(**kwargs).monitor()
-        stopped.wait(20)
     logger = kwargs.get("logger")
+    while not stopped:
+        try:
+            MigrationPipeline(**kwargs).monitor()
+        except MonitorException:
+            logger.debug("monitor_resources found a problem, stopping.")
+            return
+        stopped.wait(20)
     logger.debug("monitor_resources daemon is stopping...")

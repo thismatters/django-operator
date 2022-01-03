@@ -171,6 +171,10 @@ class CompleteMigrationStep(BasePipelineStep, DjangoKindMixin):
         return {"migration_complete": complete}
 
 
+class MonitorException(Exception):
+    pass
+
+
 class MigrationPipeline(BasePipeline, DjangoKindMixin):
     label = "migration-step"
     steps = [
@@ -231,3 +235,4 @@ class MigrationPipeline(BasePipeline, DjangoKindMixin):
             # start the pipeline
             kopf.warn(self.body, reason="Migrating", message="Something is missing...")
             self.initiate_pipeline()
+            raise MonitorException()
