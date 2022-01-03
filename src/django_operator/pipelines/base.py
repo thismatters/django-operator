@@ -75,6 +75,7 @@ class BasePipeline:
         self.spec = spec
         kwargs.update({"spec": spec})
         self.kwargs = kwargs
+        super().__init__()
 
     @classmethod
     def is_step_name(cls, value, **_):
