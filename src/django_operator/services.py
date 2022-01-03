@@ -46,7 +46,10 @@ class BaseService:
         return self.__transact(self.post_method, **kwargs)
 
     def _delete(self, **kwargs):
-        return self.__transact(self.delete_method, **kwargs)
+        try:
+            return self.__transact(self.delete_method, **kwargs)
+        except ApiException:
+            return {}
 
     def read_status(self, **kwargs):
         return self.__transact(self.read_status_method, **kwargs)

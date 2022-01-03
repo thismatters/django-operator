@@ -159,12 +159,13 @@ class CompleteMigrationStep(BasePipelineStep, DjangoKindMixin):
                 )
             self.logger.info("All that was green is now blue")
         else:
-            # remove any created green resources
+            # remove any created green resources (that aren't part of the blue deployment)
             self.logger.info("Migration was incomplete, rolling back to prior state")
             for purpose in ("beat", "worker", "app"):
-                self.django.delete_resource(
-                    kind="deployment", name=superget(created, f"deployment.{purpose}")
-                )
+                _green = superget(created, f"deployment.{purpose}")
+                _blue = superget(self.status, f"created.deployment.{purpose}")
+                if _green != _blue:
+                    self.django.delete_resource(kind="deployment", name=_green)
             self.django.delete_resource(
                 kind="pod", name=superget(context, "mgmt_pod_name")
             )
