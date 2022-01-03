@@ -296,7 +296,7 @@ class DjangoKind:
                 }
             )
         return self._migrate_resource(
-            purpose="app",
+            purpose=purpose,
             enrichments=enrichments,
             skip_delete=True,
         )
