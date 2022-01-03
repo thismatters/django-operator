@@ -171,7 +171,7 @@ class CompleteMigrationStep(BasePipelineStep, DjangoKindMixin):
         return {"migration_complete": complete}
 
 
-class MigrationPipeline(BasePipeline):
+class MigrationPipeline(BasePipeline, DjangoKindMixin):
     label = "migration-step"
     steps = [
         StartManagementCommandsStep,
@@ -208,3 +208,26 @@ class MigrationPipeline(BasePipeline):
             self.patch.metadata.labels[self.label] = self.steps[0].name
             self.patch.status["pipelineSpec"] = self._spec
         super().finalize_pipeline(context=context)
+
+    def monitor(self):
+        problem = False
+        for kind, data in self.status.get("created").items():
+            for purpose, name in data.items():
+                try:
+                    obj = self.django.read_resource(
+                        kind=kind, purpose=purpose, name=name
+                    )
+                except ApiException:
+                    self.logger.error(f"{purpose} {kind} {name} missing.")
+                    problem = True
+                else:
+                    # check for deleted tag
+                    if getattr(obj.metadata, "deletion_timestamp", False):
+                        self.logger.error(
+                            f"{purpose} {kind} {name} marked for deletion."
+                        )
+                        problem = True
+        if problem:
+            # start the pipeline
+            kopf.warn(self.body, reason="Migrating", message="Something is missing...")
+            self.initiate_pipeline()

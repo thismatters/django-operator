@@ -1,5 +1,4 @@
 import kopf
-from kubernetes.client.exceptions import ApiException
 
 from django_operator.utils import superget
 
@@ -148,26 +147,3 @@ class BasePipeline:
         if step_name == self.complete_step_name:
             return self.handle_finalize()
         return self._handle(step_name)
-
-    def monitor(self):
-        problem = False
-        for kind, data in self.status.get("created").items():
-            for purpose, name in data.items():
-                try:
-                    obj = self.django.read_resource(
-                        kind=kind, purpose=purpose, name=name
-                    )
-                except ApiException:
-                    self.logger.error(f"{purpose} {kind} {name} missing.")
-                    problem = True
-                else:
-                    # check for deleted tag
-                    if getattr(obj.metadata, "deletion_timestamp", False):
-                        self.logger.error(
-                            f"{purpose} {kind} {name} marked for deletion."
-                        )
-                        problem = True
-        if problem:
-            # start the pipeline
-            kopf.warn(self.body, reason="Migrating", message="Something is missing...")
-            self.initiate_pipeline()
