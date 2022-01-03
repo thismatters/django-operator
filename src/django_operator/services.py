@@ -101,14 +101,17 @@ class BaseService:
             self.logger.debug(f"{_body}")
             if not existing:
                 # look for an existing resource anyway
+                existing = superget(_body, "metadata.name")
+            if existing:
                 try:
                     _obj = self._read(
-                        namespace=namespace, name=superget(_body, "metadata.name")
+                        namespace=namespace, name=existing
                     )
                 except ApiException:
-                    pass
+                    existing = None
                 else:
                     existing = _obj.metadata.name
+
         # post/patch template
         if existing:
             if delete:
