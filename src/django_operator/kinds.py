@@ -81,6 +81,7 @@ class DjangoKind:
         obj = kind_service_class(logger=self.logger).ensure(
             namespace=self.namespace,
             template=template,
+            purpose=purpose,
             parent=parent,
             delete=delete,
             **kwargs,
