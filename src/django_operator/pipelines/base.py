@@ -1,4 +1,5 @@
 import kopf
+from kubernetes.client.exceptions import ApiException
 
 from django_operator.utils import superget
 
@@ -96,12 +97,12 @@ class BasePipeline:
 
     def resolve_step(self, step_name):
         step_names = [s.name for s in self.steps]
-        step_index = self.step_names.index(step_name)
+        step_index = step_names.index(step_name)
         step_klass = self.steps[step_index]
         if step_index + 1 == len(self.steps):
             next_step = self.complete_step_name
         else:
-            next_step = self.step_names[step_index + 1]
+            next_step = step_names[step_index + 1]
         return StepDetails(
             index=step_index, name=step_name, klass=step_klass, next_step_name=next_step
         )
@@ -153,14 +154,18 @@ class BasePipeline:
         for kind, data in self.status.get("created").items():
             for purpose, name in data.items():
                 try:
-                    obj = self.django.read_resource(kind=kind, purpose=purpose, name=name)
+                    obj = self.django.read_resource(
+                        kind=kind, purpose=purpose, name=name
+                    )
                 except ApiException:
                     self.logger.error(f"{purpose} {kind} {name} missing.")
                     problem = True
                 else:
                     # check for deleted tag
                     if getattr(obj.metadata, "deletion_timestamp", False):
-                        self.logger.error(f"{purpose} {kind} {name} marked for deletion.")
+                        self.logger.error(
+                            f"{purpose} {kind} {name} marked for deletion."
+                        )
                         problem = True
         if problem:
             # start the pipeline

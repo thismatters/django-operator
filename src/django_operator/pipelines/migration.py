@@ -7,7 +7,7 @@ from django_operator.pipelines.base import (
     BasePipelineStep,
     BaseWaitingStep,
 )
-from django_operator.utils import merge, superget
+from django_operator.utils import superget
 
 
 class DjangoKindMixin:
@@ -84,7 +84,8 @@ class StartGreenDeploymentStep(BasePipelineStep, DjangoKindMixin):
 class AwaitGreenDeploymentStep(BaseWaitingStep, DjangoKindMixin):
     def is_ready(self, *, context):
         return self.django.deployment_reached_condition(
-            condition="Available", name=superget(context, f"created.deployment.{self.purpose}")
+            condition="Available",
+            name=superget(context, f"created.deployment.{self.purpose}"),
         )
 
 
@@ -154,16 +155,19 @@ class CompleteMigrationStep(BasePipelineStep, DjangoKindMixin):
             for purpose in ("beat", "worker", "app"):
                 self.logger.info(f"Removing blue {purpose} deployment")
                 self.django.clean_blue(
-                    purpose="app", blue=superget(context, f"blue_{purpose}"))
+                    purpose="app", blue=superget(context, f"blue_{purpose}")
+                )
             self.logger.info("All that was green is now blue")
         else:
             # remove any created green resources
             self.logger.info("Migration was incomplete, rolling back to prior state")
             for purpose in ("beat", "worker", "app"):
                 self.django.delete_resource(
-                    kind="deployment", name=superget(created, f"deployment.{purpose}"))
+                    kind="deployment", name=superget(created, f"deployment.{purpose}")
+                )
             self.django.delete_resource(
-                kind="pod", name=superget(context, "mgmt_pod_name"))
+                kind="pod", name=superget(context, "mgmt_pod_name")
+            )
         return {"migration_complete": complete}
 
 

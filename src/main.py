@@ -1,7 +1,6 @@
 import kopf
 
 from django_operator.pipelines.migration import MigrationPipeline
-from django_operator.utils import superget
 
 
 @kopf.on.create("thismatters.github", "v1alpha", "djangos")
@@ -20,12 +19,12 @@ def initial_migration(patch, body, **kwargs):
 def migration_pipeline(**kwargs):
     return MigrationPipeline(**kwargs).handle()
 
+
 @kopf.daemon(
     "thismatters.github",
     "v1alpha",
     "djangos",
     labels={MigrationPipeline.label: MigrationPipeline.waiting_step_name},
-
 )
 def monitor_resources(stopped, **kwargs):
     """Watch the `created` resources to ensure that they are still present.
