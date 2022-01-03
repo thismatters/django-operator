@@ -62,6 +62,17 @@ class DjangoKind:
         self.namespace = namespace
         self.version_slug = version_slug
 
+    def read_resource(self, kind, purpose, name):
+        kind_service_class = self.kind_services[kind]
+        obj = kind_service_class(logger=self.logger).read(
+            namespace=self.namespace,
+            name=name,
+        )
+        return obj
+
+    def delete_resource(self, *, kind, name):
+        return self._ensure(kind=kind, purpose="purpose", existing=name, delete=True)
+
     def _ensure_raw(
         self, kind, purpose, delete=False, template=None, parent=None, **kwargs
     ):
@@ -74,7 +85,6 @@ class DjangoKind:
             namespace=self.namespace,
             template=template,
             parent=parent,
-            purpose=purpose,
             delete=delete,
             **kwargs,
             **self.base_kwargs,
@@ -159,12 +169,7 @@ class DjangoKind:
 
     def clean_manage_commands(self, *, pod_name):
         # delete the pod
-        self._ensure(
-            kind="pod",
-            purpose="migrations",
-            existing=pod_name,
-            delete=True,
-        )
+        self.delete_resource(kind="pod", name=pod_name)
 
     def _resource_names(self, *, kind, purpose):
         existing = superget(self.status, f"created.{kind}.{purpose}", default="")
@@ -302,12 +307,7 @@ class DjangoKind:
     def clean_blue(self, *, purpose, blue):
         if blue:
             self.logger.debug(f"migrate {purpose} => doing delete")
-            self._ensure(
-                kind="deployment",
-                purpose=purpose,
-                existing=blue,
-                delete=True,
-            )
+            self.delete_resource(kind="deployment", name=blue)
 
     def migrate_worker(self):
         # worker data gathering

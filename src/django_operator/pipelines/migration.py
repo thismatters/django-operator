@@ -68,54 +68,72 @@ class AwaitManagementCommandsStep(BaseWaitingStep, DjangoKindMixin):
         return True
 
 
-class StartGreenAppStep(BasePipelineStep, DjangoKindMixin):
-    name = "start-app"
-
+class StartGreenDeploymentStep(BasePipelineStep, DjangoKindMixin):
     def handle(self, *, context):
-        blue_app = superget(self.status, "created.deployment.app")
-        self.logger.info("Setting up green app deployment")
-        created = self.django.start_green(purpose="app")
-        green_app = superget(created, "deployment.app")
-        if blue_app == green_app:
+        blue = superget(self.status, f"created.deployment.{self.purpose}")
+        self.logger.info(f"Setting up green {self.purpose} deployment")
+        created = self.django.start_green(purpose=self.purpose)
+        green = superget(created, f"deployment.{self.purpose}")
+        if blue == green:
             # don't bonk out the thing you just created! (just in case the
             #  version didn't change)
-            blue_app = None
-        return {"blue_app": blue_app, "created": created}
+            blue = None
+        return {f"blue_{self.purpose}": blue, "created": created}
 
 
-class AwaitGreenAppStep(BaseWaitingStep, DjangoKindMixin):
-    name = "await-app"
-
+class AwaitGreenDeploymentStep(BaseWaitingStep, DjangoKindMixin):
     def is_ready(self, *, context):
         return self.django.deployment_reached_condition(
-            condition="Available", name=superget(context, "created.deployment.app")
+            condition="Available", name=superget(context, f"created.deployment.{self.purpose}")
         )
+
+
+class StartGreenAppStep(StartGreenDeploymentStep):
+    name = "start-app"
+    purpose = "app"
+
+
+class AwaitGreenAppStep(AwaitGreenDeploymentStep):
+    name = "await-app"
+    purpose = "app"
+
+
+class StartGreenWorkerStep(StartGreenDeploymentStep):
+    name = "start-worker"
+    purpose = "worker"
+
+
+class AwaitGreenWorkerStep(AwaitGreenDeploymentStep):
+    name = "await-worker"
+    purpose = "worker"
+
+
+class StartGreenBeatStep(StartGreenDeploymentStep):
+    name = "start-beat"
+    purpose = "beat"
+
+
+class AwaitGreenBeatStep(AwaitGreenDeploymentStep):
+    name = "await-beat"
+    purpose = "beat"
+    period_default = 3
 
 
 class MigrateServiceStep(BasePipelineStep, DjangoKindMixin):
     name = "migrate-service"
 
     def handle(self, *, context):
-        self.logger.info("Setting up green worker deployment")
-        created = self.django.migrate_worker()
-        self.logger.info("Setting up green beat deployment")
-        merge(created, self.django.migrate_beat())
         self.logger.info("Migrating service to green app deployment")
-        merge(created, self.django.migrate_service())
-        blue_app = superget(context, "blue_app")
-        self.logger.info("Removing blue app deployment")
-        self.django.clean_blue(purpose="app", blue=blue_app)
-        self.logger.info("All that was green is now blue")
+        created = self.django.migrate_service()
         self.patch.status["version"] = self.django.version
         return {"created": created}
 
 
-class CompleteMigrationStep(BasePipelineStep):
+class CompleteMigrationStep(BasePipelineStep, DjangoKindMixin):
     name = "cleanup"
 
     def handle(self, *, context):
         created = context.get("created")
-        self.patch.status["created"] = created
         create_targets = [
             "deployment.app",
             "deployment.beat",
@@ -129,6 +147,23 @@ class CompleteMigrationStep(BasePipelineStep):
             if superget(self.spec, f"autoscalers.{purpose}.enabled", default=False):
                 create_targets.append(f"horizontalpodautoscaler.{purpose}")
         complete = all([superget(created, t) is not None for t in create_targets])
+
+        if complete:
+            self.patch.status["created"] = created
+            # remove the blue resources
+            for purpose in ("beat", "worker", "app"):
+                self.logger.info(f"Removing blue {purpose} deployment")
+                self.django.clean_blue(
+                    purpose="app", blue=superget(context, f"blue_{purpose}"))
+            self.logger.info("All that was green is now blue")
+        else:
+            # remove any created green resources
+            self.logger.info("Migration was incomplete, rolling back to prior state")
+            for purpose in ("beat", "worker", "app"):
+                self.django.delete_resource(
+                    kind="deployment", name=superget(created, f"deployment.{purpose}"))
+            self.django.delete_resource(
+                kind="pod", name=superget(context, "mgmt_pod_name"))
         return {"migration_complete": complete}
 
 
@@ -139,13 +174,16 @@ class MigrationPipeline(BasePipeline):
         AwaitManagementCommandsStep,
         StartGreenAppStep,
         AwaitGreenAppStep,
+        StartGreenWorkerStep,
+        AwaitGreenWorkerStep,
+        StartGreenBeatStep,
+        AwaitGreenBeatStep,
         MigrateServiceStep,
         CompleteMigrationStep,
     ]
     update_handler_name = "migration_pipeline"
 
     def initiate_pipeline(self):
-        kopf.info(self.body, reason="Migrating", message="Enacting new config")
         super().initiate_pipeline()
         self.patch.status["condition"] = "migrating"
         return {}
@@ -163,6 +201,6 @@ class MigrationPipeline(BasePipeline):
             self.patch.status["pipelineSpec"] = None
         else:
             self.logger.info("Object changed during migration. Starting new migration.")
-            self.patch.metadata.labels[self.label] = self.step_names[0]
+            self.patch.metadata.labels[self.label] = self.steps[0].name
             self.patch.status["pipelineSpec"] = self._spec
         super().finalize_pipeline(context=context)

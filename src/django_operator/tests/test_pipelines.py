@@ -60,8 +60,6 @@ class BasePipelineTestCase(TestCase):
     @patch.object(BasePipeline, "steps", [ThingWithName, OtherThingWithName])
     def test_step_names_basic(self):
         pipeline = BasePipeline(**self.kwargs)
-        self.assertEqual(pipeline.step_names, ["i-have-a-name", "i-also-have-a-name"])
-
         self.assertTrue(BasePipeline.is_step_name("ready"))
         self.assertTrue(BasePipeline.is_step_name("done"))
         self.assertTrue(BasePipeline.is_step_name("i-have-a-name"))

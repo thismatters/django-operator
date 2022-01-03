@@ -75,7 +75,6 @@ class BasePipeline:
         self.spec = spec
         kwargs.update({"spec": spec})
         self.kwargs = kwargs
-        self.step_names = [s.name for s in self.steps]
 
     @classmethod
     def is_step_name(cls, value, **_):
@@ -87,14 +86,16 @@ class BasePipeline:
         return False
 
     def initiate_pipeline(self):
+        kopf.info(self.body, reason="Migrating", message="Enacting new config")
         self.patch.status["pipelineSpec"] = dict(self.spec)
-        self.patch.metadata.labels[self.label] = self.step_names[0]
+        self.patch.metadata.labels[self.label] = self.steps[0].name
 
     def finalize_pipeline(self, *, context):
         self.patch.status[self.update_handler_name] = None
         return None
 
     def resolve_step(self, step_name):
+        step_names = [s.name for s in self.steps]
         step_index = self.step_names.index(step_name)
         step_klass = self.steps[step_index]
         if step_index + 1 == len(self.steps):
@@ -146,3 +147,22 @@ class BasePipeline:
         if step_name == self.complete_step_name:
             return self.handle_finalize()
         return self._handle(step_name)
+
+    def monitor(self):
+        problem = False
+        for kind, data in status.get("created").items():
+            for purpose, name in data.items():
+                try:
+                    obj = self.django.read_resource(kind=kind, purpose=purpose, name=name)
+                except ApiException:
+                    self.logger.error(f"{purpose} {kind} {name} missing.")
+                    problem = True
+                else:
+                    # check for deleted tag
+                    if getattr(obj.metadata, "deletion_timestamp", False):
+                        self.logger.error(f"{purpose} {kind} {name} marked for deletion.")
+                        problem = True
+        if problem:
+            # start the pipeline
+            kopf.warn(self.body, reason="Migrating", message="Something is missing...")
+            self.initiate_pipeline()
