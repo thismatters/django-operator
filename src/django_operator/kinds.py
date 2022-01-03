@@ -31,8 +31,6 @@ class DjangoKind:
             kopf.exception(body, reason="ConfigError", message="")
             raise kopf.PermanentError("Spec missing required field")
 
-        self.logger.info(f"Migrating from {status.get('version', 'new')} to {version}")
-
         image = f"{_image}:{version}"
         version_slug = slugify(version)
 
@@ -51,7 +49,6 @@ class DjangoKind:
             "beat_memory_request": superget(spec, "resourceRequests.beat.memory"),
             "worker_memory_request": superget(spec, "resourceRequests.worker.memory"),
         }
-        self.logger.debug(f"Base kwargs: {self.base_kwargs}")
         self.body = body
         self.host = host
         self.spec = spec
@@ -158,7 +155,6 @@ class DjangoKind:
                 "initContainers": enriched_commands,
             }
         }
-        self.logger.debug(enrichments)
 
         _pod = self._ensure(
             kind="pod",

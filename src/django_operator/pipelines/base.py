@@ -88,6 +88,10 @@ class BasePipeline:
 
     def initiate_pipeline(self):
         kopf.info(self.body, reason="Migrating", message="Enacting new config")
+        self.logger.info(
+            f"Migrating from {self.status.get('version', 'new')} to "
+            f"{self.spec.get('version')}"
+        )
         self.patch.status["pipelineSpec"] = dict(self.spec)
         self.patch.metadata.labels[self.label] = self.steps[0].name
 
