@@ -70,6 +70,13 @@ class DjangoKind:
     def delete_resource(self, *, kind, name):
         return self._ensure(kind=kind, purpose="purpose", existing=name, delete=True)
 
+    def unprotect_resource(self, kind, name):
+        kind_service_class = self.kind_services[kind]
+        kind_service_class(logger=self.logger).unprotect(
+            namespace=self.namespace,
+            name=name,
+        )
+
     def _ensure_raw(
         self, kind, purpose, delete=False, template=None, parent=None, **kwargs
     ):

@@ -2,6 +2,8 @@ apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
   name: "{purpose}-{version_slug}"
+  finalizers:
+  - "django.thismatters.github/protector"
 spec:
   maxReplicas: {max_replicas}
   minReplicas: {min_replicas}

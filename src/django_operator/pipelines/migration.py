@@ -237,3 +237,8 @@ class MigrationPipeline(BasePipeline, DjangoKindMixin):
             kopf.warn(self.body, reason="Migrating", message="Something is missing...")
             self.initiate_pipeline()
             raise MonitorException()
+
+    def unprotect_all(self):
+        for kind, data in self.status.get("created").items():
+            for purpose, name in data.items():
+                self.django.unprotect_resource(kind=kind, name=name)

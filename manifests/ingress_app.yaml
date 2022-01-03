@@ -9,6 +9,8 @@ metadata:
     cert-manager.io/cluster-issuer: "{cluster_issuer}"
     cert-manager.io/common-name: "{common_name}"
     cert-manager.io/renew-before: 480h
+  finalizers:
+  - "django.thismatters.github/protector"
 spec:
   tls:
   - hosts:

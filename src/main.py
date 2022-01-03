@@ -23,6 +23,12 @@ def migration_pipeline(**kwargs):
     return MigrationPipeline(**kwargs).handle()
 
 
+# catch-all update handler
+@kopf.on.delete("thismatters.github", "v1alpha", "djangos")
+def unprotect_resources(**kwargs):
+    MigrationPipeline(**kwargs).unprotect_all()
+
+
 @kopf.daemon(
     "thismatters.github",
     "v1alpha",
@@ -41,5 +47,5 @@ def monitor_resources(stopped, **kwargs):
         except MonitorException:
             logger.debug("monitor_resources found a problem, stopping.")
             return
-        stopped.wait(20)
+        stopped.wait(120)
     logger.debug("monitor_resources daemon is stopping...")

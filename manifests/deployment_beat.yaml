@@ -5,6 +5,8 @@ metadata:
     role: beat
     version: "{version}"
   name: "beat-{version_slug}"
+  finalizers:
+  - "django.thismatters.github/protector"
 spec:
   replicas: 1
   selector:

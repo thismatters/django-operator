@@ -46,10 +46,30 @@ class BaseService:
         return self.__transact(self.post_method, **kwargs)
 
     def _delete(self, **kwargs):
+        # remove the protect annotation
         try:
             return self.__transact(self.delete_method, **kwargs)
         except ApiException:
             return {}
+
+    def unprotect(self, *, namespace, name, obj=None):
+        if obj is None:
+            try:
+                obj = self._read(namespace=namespace, name=name)
+            except ApiException:
+                # object doesn't exist
+                return
+        finalizers = list(obj.metadata.finalizers)
+        if "django.thismatters.github/protector" in finalizers:
+            finalizers.remove("django.thismatters.github/protect")
+        try:
+            self._patch(
+                body={"metadata": {"finalizers": finalizers}},
+                namespace=namespace,
+                name=name,
+            )
+        except ApiException:
+            pass
 
     def read_status(self, **kwargs):
         return self.__transact(self.read_status_method, **kwargs)
@@ -86,7 +106,6 @@ class BaseService:
         delete=False,
         **kwargs,
     ):
-        obj = None
         if not delete:
             if body:
                 _body = yaml.safe_load(body)
@@ -102,19 +121,20 @@ class BaseService:
             if not existing:
                 # look for an existing resource anyway
                 existing = superget(_body, "metadata.name")
-            if existing:
-                try:
-                    _obj = self._read(
-                        namespace=namespace, name=existing
-                    )
-                except ApiException:
-                    existing = None
-                else:
-                    existing = _obj.metadata.name
+        _obj = None
+        if existing:
+            try:
+                _obj = self._read(namespace=namespace, name=existing)
+            except ApiException:
+                existing = None
+            else:
+                existing = _obj.metadata.name
 
         # post/patch template
+        obj = None
         if existing:
             if delete:
+                self.unprotect(namespace=namespace, name=existing, obj=_obj)
                 obj = self._delete(namespace=namespace, name=existing)
             else:
                 # do patch
