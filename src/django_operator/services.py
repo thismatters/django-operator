@@ -96,16 +96,16 @@ class BaseService:
             _body = self._enrich_manifest(body=_body, enrichments=enrichments)
             adopt_sans_labels(_body, owner=parent, labels=("migration-step",))
             self.logger.debug(f"{_body}")
-        if not existing:
-            # look for an existing resource anyway
-            try:
-                _obj = self._read(
-                    namespace=namespace, name=superget(_body, "metadata.name")
-                )
-            except ApiException:
-                pass
-            else:
-                existing = _obj.metadata.name
+            if not existing:
+                # look for an existing resource anyway
+                try:
+                    _obj = self._read(
+                        namespace=namespace, name=superget(_body, "metadata.name")
+                    )
+                except ApiException:
+                    pass
+                else:
+                    existing = _obj.metadata.name
         # post/patch template
         if existing:
             if delete:
