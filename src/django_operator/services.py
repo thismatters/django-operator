@@ -52,7 +52,7 @@ class BaseService:
         except ApiException:
             return {}
 
-    def _exclude_finalizer(self, *, finalizer, obj):
+    def _remove_finalizer(self, *, finalizer, obj):
         _finalizers = obj.metadata.finalizers
         if _finalizers is None:
             raise ValueError("no finalizers")
