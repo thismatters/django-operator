@@ -38,9 +38,6 @@ class BasePipelineTestCase(TestCase):
         """Ensure that the spec is perserved during a pipeline"""
         pipeline = BasePipeline(**self.kwargs)
         self.assertEqual(pipeline.spec, self.kwargs["spec"])
-        self.assertEqual(
-            self.kwargs["patch"].status, {"pipelineSpec": self.kwargs["spec"]}
-        )
         self.assertTrue(hasattr(pipeline, "logger"))
         self.assertTrue(hasattr(pipeline, "patch"))
         self.assertTrue(hasattr(pipeline, "labels"))
@@ -54,14 +51,10 @@ class BasePipelineTestCase(TestCase):
         self.kwargs["status"] = {"pipelineSpec": existing}
         pipeline = BasePipeline(**self.kwargs)
         self.assertEqual(pipeline.spec, existing)
-        self.assertEqual(self.kwargs["patch"].status, {})
 
     @patch.object(BasePipeline, "label", "test-pipeline")
     @patch.object(BasePipeline, "steps", [ThingWithName, OtherThingWithName])
     def test_step_names_basic(self):
-        pipeline = BasePipeline(**self.kwargs)
-        self.assertEqual(pipeline.step_names, ["i-have-a-name", "i-also-have-a-name"])
-
         self.assertTrue(BasePipeline.is_step_name("ready"))
         self.assertTrue(BasePipeline.is_step_name("done"))
         self.assertTrue(BasePipeline.is_step_name("i-have-a-name"))
@@ -100,11 +93,15 @@ class BasePipelineTestCase(TestCase):
 
     @patch.object(BasePipeline, "label", "test-pipeline")
     @patch.object(BasePipeline, "steps", [ThingWithName, OtherThingWithName])
-    def test_initiate_pipeline(self):
+    @patch("django_operator.pipelines.base.kopf.info")
+    def test_initiate_pipeline(self, p_info):
         pipeline = BasePipeline(**self.kwargs)
         pipeline.initiate_pipeline()
         self.assertEqual(
             self.kwargs["patch"].metadata.labels, {"test-pipeline": "i-have-a-name"}
+        )
+        self.assertEqual(
+            self.kwargs["patch"].status, {"pipelineSpec": self.kwargs["spec"]}
         )
 
     def test_has_real_changes_false(self):

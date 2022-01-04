@@ -31,8 +31,6 @@ class DjangoKind:
             kopf.exception(body, reason="ConfigError", message="")
             raise kopf.PermanentError("Spec missing required field")
 
-        self.logger.info(f"Migrating from {status.get('version', 'new')} to {version}")
-
         image = f"{_image}:{version}"
         version_slug = slugify(version)
 
@@ -51,7 +49,6 @@ class DjangoKind:
             "beat_memory_request": superget(spec, "resourceRequests.beat.memory"),
             "worker_memory_request": superget(spec, "resourceRequests.worker.memory"),
         }
-        self.logger.debug(f"Base kwargs: {self.base_kwargs}")
         self.body = body
         self.host = host
         self.spec = spec
@@ -61,6 +58,24 @@ class DjangoKind:
         self.version = version
         self.namespace = namespace
         self.version_slug = version_slug
+
+    def read_resource(self, kind, purpose, name):
+        kind_service_class = self.kind_services[kind]
+        obj = kind_service_class(logger=self.logger).read(
+            namespace=self.namespace,
+            name=name,
+        )
+        return obj
+
+    def delete_resource(self, *, kind, name):
+        return self._ensure(kind=kind, purpose="purpose", existing=name, delete=True)
+
+    def unprotect_resource(self, *, kind, name):
+        kind_service_class = self.kind_services[kind]
+        kind_service_class(logger=self.logger).unprotect(
+            namespace=self.namespace,
+            name=name,
+        )
 
     def _ensure_raw(
         self, kind, purpose, delete=False, template=None, parent=None, **kwargs
@@ -73,8 +88,8 @@ class DjangoKind:
         obj = kind_service_class(logger=self.logger).ensure(
             namespace=self.namespace,
             template=template,
-            parent=parent,
             purpose=purpose,
+            parent=parent,
             delete=delete,
             **kwargs,
             **self.base_kwargs,
@@ -148,7 +163,6 @@ class DjangoKind:
                 "initContainers": enriched_commands,
             }
         }
-        self.logger.debug(enrichments)
 
         _pod = self._ensure(
             kind="pod",
@@ -159,12 +173,7 @@ class DjangoKind:
 
     def clean_manage_commands(self, *, pod_name):
         # delete the pod
-        self._ensure(
-            kind="pod",
-            purpose="migrations",
-            existing=pod_name,
-            delete=True,
-        )
+        self.delete_resource(kind="pod", name=pod_name)
 
     def _resource_names(self, *, kind, purpose):
         existing = superget(self.status, f"created.{kind}.{purpose}", default="")
@@ -294,7 +303,7 @@ class DjangoKind:
                 }
             )
         return self._migrate_resource(
-            purpose="app",
+            purpose=purpose,
             enrichments=enrichments,
             skip_delete=True,
         )
@@ -302,12 +311,7 @@ class DjangoKind:
     def clean_blue(self, *, purpose, blue):
         if blue:
             self.logger.debug(f"migrate {purpose} => doing delete")
-            self._ensure(
-                kind="deployment",
-                purpose=purpose,
-                existing=blue,
-                delete=True,
-            )
+            self.delete_resource(kind="deployment", name=blue)
 
     def migrate_worker(self):
         # worker data gathering

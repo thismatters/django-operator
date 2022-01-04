@@ -46,10 +46,40 @@ class BaseService:
         return self.__transact(self.post_method, **kwargs)
 
     def _delete(self, **kwargs):
-        return self.__transact(self.delete_method, **kwargs)
+        # remove the protect annotation
+        try:
+            return self.__transact(self.delete_method, **kwargs)
+        except ApiException:
+            return {}
+
+    def unprotect(self, *, namespace, name, obj=None):
+        if obj is None:
+            try:
+                obj = self._read(namespace=namespace, name=name)
+            except ApiException:
+                # object doesn't exist
+                return
+        protector = "django.thismatters.github/protector"
+        try:
+            finalizers = [f for f in obj.metadata.finalizers if f != protector] or None
+        except TypeError:
+            # obj.metadata.finalizers is None
+            return
+        try:
+            self._patch(
+                body={"metadata": {"finalizers": finalizers}},
+                namespace=namespace,
+                name=name,
+            )
+        except (ApiException,) as e:
+            self.logger.error(f"removing finalizers failed for {name}")
+            self.logger.error(f"{e}")
 
     def read_status(self, **kwargs):
         return self.__transact(self.read_status_method, **kwargs)
+
+    def read(self, **kwargs):
+        return self._read(**kwargs)
 
     def _render_manifest(self, *, template, **kwargs):
         _template = Path("manifests") / template
@@ -68,8 +98,21 @@ class BaseService:
                 raise
         return body
 
-    def read(self, **kwargs):
-        return self._read(**kwargs)
+    def _get_manifest(
+        self, *, body, template, parent, namespace, enrichments, **kwargs
+    ):
+        if body:
+            _body = yaml.safe_load(body)
+        elif template:
+            _body = self._render_manifest(
+                template=template, namespace=namespace, **kwargs
+            )
+        else:
+            raise Exception("wtf")  # config error
+        _body = self._enrich_manifest(body=_body, enrichments=enrichments)
+        adopt_sans_labels(_body, owner=parent, labels=("migration-step",))
+        self.logger.debug(f"{_body}")
+        return _body
 
     def ensure(
         self,
@@ -83,32 +126,32 @@ class BaseService:
         delete=False,
         **kwargs,
     ):
-        obj = None
         if not delete:
-            if body:
-                _body = yaml.safe_load(body)
-            elif template:
-                _body = self._render_manifest(
-                    template=template, namespace=namespace, **kwargs
-                )
-            else:
-                raise Exception("wtf")  # config error
-            _body = self._enrich_manifest(body=_body, enrichments=enrichments)
-            adopt_sans_labels(_body, owner=parent, labels=("migration-step",))
-            self.logger.debug(f"{_body}")
-        if not existing:
-            # look for an existing resource anyway
+            _body = self._get_manifest(
+                body=body,
+                template=template,
+                parent=parent,
+                namespace=namespace,
+                enrichments=enrichments,
+                **kwargs,
+            )
+            if not existing:
+                # use the name of the resource to check for existance
+                existing = superget(_body, "metadata.name")
+        _obj = None
+        if existing:
             try:
-                _obj = self._read(
-                    namespace=namespace, name=superget(_body, "metadata.name")
-                )
+                _obj = self._read(namespace=namespace, name=existing)
             except ApiException:
-                pass
+                existing = None
             else:
                 existing = _obj.metadata.name
+
         # post/patch template
+        obj = None
         if existing:
             if delete:
+                self.unprotect(namespace=namespace, name=existing, obj=_obj)
                 obj = self._delete(namespace=namespace, name=existing)
             else:
                 # do patch

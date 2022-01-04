@@ -77,9 +77,9 @@ class DjangoKindTestCase(TestCase):
         django_kind.clean_manage_commands(pod_name="poopypod")
         p_ensure.assert_called_once_with(
             namespace="test",
-            template="pod_migrations.yaml",
+            template="pod_purpose.yaml",
             parent={"this": "body"},
-            purpose="migrations",
+            purpose="purpose",
             delete=True,
             existing="poopypod",
             **django_kind.base_kwargs,

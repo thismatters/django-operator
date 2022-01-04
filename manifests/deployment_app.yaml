@@ -5,6 +5,8 @@ metadata:
     role: app
     version: "{version}"
   name: "app-{version_slug}"
+  finalizers:
+  - "django.thismatters.github/protector"
 spec:
   selector:
     matchLabels:

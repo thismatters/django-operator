@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: app-service
+  finalizers:
+  - "django.thismatters.github/protector"
 spec:
   type: ClusterIP
   ports:

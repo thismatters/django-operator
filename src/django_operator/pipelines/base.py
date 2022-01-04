@@ -75,7 +75,7 @@ class BasePipeline:
         self.spec = spec
         kwargs.update({"spec": spec})
         self.kwargs = kwargs
-        self.step_names = [s.name for s in self.steps]
+        super().__init__()
 
     @classmethod
     def is_step_name(cls, value, **_):
@@ -87,20 +87,26 @@ class BasePipeline:
         return False
 
     def initiate_pipeline(self):
+        kopf.info(self.body, reason="Migrating", message="Enacting new config")
+        self.logger.info(
+            f"Migrating from {self.status.get('version', 'new')} to "
+            f"{self.spec.get('version')}"
+        )
         self.patch.status["pipelineSpec"] = dict(self.spec)
-        self.patch.metadata.labels[self.label] = self.step_names[0]
+        self.patch.metadata.labels[self.label] = self.steps[0].name
 
     def finalize_pipeline(self, *, context):
         self.patch.status[self.update_handler_name] = None
         return None
 
     def resolve_step(self, step_name):
-        step_index = self.step_names.index(step_name)
+        step_names = [s.name for s in self.steps]
+        step_index = step_names.index(step_name)
         step_klass = self.steps[step_index]
         if step_index + 1 == len(self.steps):
             next_step = self.complete_step_name
         else:
-            next_step = self.step_names[step_index + 1]
+            next_step = step_names[step_index + 1]
         return StepDetails(
             index=step_index, name=step_name, klass=step_klass, next_step_name=next_step
         )
