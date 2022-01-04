@@ -52,6 +52,17 @@ class BaseService:
         except ApiException:
             return {}
 
+    def _exclude_finalizer(self, *, finalizer, obj):
+        _finalizers = obj.metadata.finalizers
+        if _finalizers is None:
+            raise ValueError("no finalizers")
+        finalizers = list(_finalizers)
+        finalizers.remove(finalizer)
+        if not finalizers:
+            # the API doesn't do anything with an empty list, has to be null
+            finalizers = None
+        return finalizers
+
     def unprotect(self, *, namespace, name, obj=None):
         if obj is None:
             try:
@@ -59,31 +70,27 @@ class BaseService:
             except ApiException:
                 # object doesn't exist
                 return
-        _finalizers = obj.metadata.finalizers
-        self.logger.debug(f"finalizers from obj {_finalizers}")
-        if _finalizers is None:
+        try:
+            finalizers = self._remove_finalizer(
+                finalizer="django.thismatters.github/protector", obj=obj
+            )
+        except ValueError:
             return
-        finalizers = list(_finalizers)
-        self.logger.debug(f"finalizers list {finalizers}")
-        if "django.thismatters.github/protector" in finalizers:
-            finalizers.remove("django.thismatters.github/protector")
-            self.logger.debug(
-                f"removed finalizer from list. these items remain {finalizers}")
-        if not finalizers:
-            finalizers = None
         try:
             self._patch(
                 body={"metadata": {"finalizers": finalizers}},
                 namespace=namespace,
                 name=name,
             )
-        except (ApiException, ) as e:
+        except (ApiException,) as e:
             self.logger.error(f"removing finalizers failed for {name}")
             self.logger.error(f"{e}")
-            pass
 
     def read_status(self, **kwargs):
         return self.__transact(self.read_status_method, **kwargs)
+
+    def read(self, **kwargs):
+        return self._read(**kwargs)
 
     def _render_manifest(self, *, template, **kwargs):
         _template = Path("manifests") / template
@@ -102,8 +109,21 @@ class BaseService:
                 raise
         return body
 
-    def read(self, **kwargs):
-        return self._read(**kwargs)
+    def _get_manifest(
+        self, *, body, template, parent, namespace, enrichments, **kwargs
+    ):
+        if body:
+            _body = yaml.safe_load(body)
+        elif template:
+            _body = self._render_manifest(
+                template=template, namespace=namespace, **kwargs
+            )
+        else:
+            raise Exception("wtf")  # config error
+        _body = self._enrich_manifest(body=_body, enrichments=enrichments)
+        adopt_sans_labels(_body, owner=parent, labels=("migration-step",))
+        self.logger.debug(f"{_body}")
+        return _body
 
     def ensure(
         self,
@@ -118,19 +138,15 @@ class BaseService:
         **kwargs,
     ):
         if not delete:
-            if body:
-                _body = yaml.safe_load(body)
-            elif template:
-                _body = self._render_manifest(
-                    template=template, namespace=namespace, **kwargs
-                )
-            else:
-                raise Exception("wtf")  # config error
-            _body = self._enrich_manifest(body=_body, enrichments=enrichments)
-            adopt_sans_labels(_body, owner=parent, labels=("migration-step",))
-            self.logger.debug(f"{_body}")
+            _body = self._get_manifest(
+                body=body,
+                template=template,
+                parent=parent,
+                enrichments=enrichments,
+                **kwargs,
+            )
             if not existing:
-                # look for an existing resource anyway
+                # use the name of the resource to check for existance
                 existing = superget(_body, "metadata.name")
         _obj = None
         if existing:
