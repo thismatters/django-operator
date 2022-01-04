@@ -225,13 +225,6 @@ class MigrationPipeline(BasePipeline, DjangoKindMixin):
                 except ApiException:
                     self.logger.error(f"{purpose} {kind} {name} missing.")
                     problem = True
-                else:
-                    # check for deleted tag
-                    if getattr(obj.metadata, "deletion_timestamp", False):
-                        self.logger.error(
-                            f"{purpose} {kind} {name} marked for deletion."
-                        )
-                        problem = True
         if problem:
             # start the pipeline
             kopf.warn(self.body, reason="Migrating", message="Something is missing...")

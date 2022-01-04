@@ -64,7 +64,7 @@ class BaseService:
             return
         finalizers = list(_finalizers)
         if "django.thismatters.github/protector" in finalizers:
-            finalizers.remove("django.thismatters.github/protect")
+            finalizers.remove("django.thismatters.github/protector")
         try:
             self._patch(
                 body={"metadata": {"finalizers": finalizers}},

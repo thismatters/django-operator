@@ -46,6 +46,6 @@ def monitor_resources(stopped, **kwargs):
             MigrationPipeline(**kwargs).monitor()
         except MonitorException:
             logger.debug("monitor_resources found a problem, stopping.")
-            return
+            raise kopf.TemporaryError("Need to restart.", delay=10)
         stopped.wait(120)
     logger.debug("monitor_resources daemon is stopping...")
