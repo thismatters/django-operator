@@ -142,6 +142,7 @@ class BaseService:
                 body=body,
                 template=template,
                 parent=parent,
+                namespace=namespace,
                 enrichments=enrichments,
                 **kwargs,
             )
