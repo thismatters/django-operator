@@ -52,17 +52,6 @@ class BaseService:
         except ApiException:
             return {}
 
-    def _remove_finalizer(self, *, finalizer, obj):
-        _finalizers = obj.metadata.finalizers
-        if _finalizers is None:
-            raise ValueError("no finalizers")
-        finalizers = list(_finalizers)
-        finalizers.remove(finalizer)
-        if not finalizers:
-            # the API doesn't do anything with an empty list, has to be null
-            finalizers = None
-        return finalizers
-
     def unprotect(self, *, namespace, name, obj=None):
         if obj is None:
             try:
@@ -70,11 +59,11 @@ class BaseService:
             except ApiException:
                 # object doesn't exist
                 return
+        protector = "django.thismatters.github/protector"
         try:
-            finalizers = self._remove_finalizer(
-                finalizer="django.thismatters.github/protector", obj=obj
-            )
-        except ValueError:
+            finalizers = [f for f in obj.metadata.finalizers if f != protector] or None
+        except TypeError:
+            # obj.metadata.finalizers is None
             return
         try:
             self._patch(
