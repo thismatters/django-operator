@@ -69,8 +69,8 @@ class BaseService:
             finalizers.remove("django.thismatters.github/protector")
             self.logger.debug(
                 f"removed finalizer from list. these items remain {finalizers}")
-        # TODO: remove this plz
-        finalizers = ["some-other-finalizer"]
+        if not finalizers:
+            finalizers = None
         try:
             self._patch(
                 body={"metadata": {"finalizers": finalizers}},
