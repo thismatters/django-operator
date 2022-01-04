@@ -40,7 +40,7 @@ See [sample.yaml](sample.yaml) for a sample manifest for a django app.
   * [x] job -- migrations
 * [x] write create/update the code
 * [x] more logging, send events
-* [] write delete code (shouldn't be much here really...)
+* [x] write delete code (shouldn't be much here really...)
 * [x] set up CI pipeline
 * [x] lint
 * [x] deploy to cluster (for testing)
@@ -58,7 +58,7 @@ See [sample.yaml](sample.yaml) for a sample manifest for a django app.
 * [x] more active monitoring of child resources (prevent deletion, &c.) -- daemon to check for the presence of the each `created` thing.
 * [x] Better tracking of objects as they are created for garbage collection in event of failed migration, more robust cleanup should include garbage collection -- requires expanded process
 * [ ] documentation for users
-* [ ] Consider restructuring the CRD to have sections for each purpose (`{"app": {"xyz": "val", "abc": "val"}}` as opposed to `{"xyz": {"app": "val", "worker": "val"}}`)
+* [ ] Consider restructuring the CRD to have sections for each purpose (`{"app": {"xyz": "val", "abc": "val"}}` as opposed to `{"xyz": {"app": "val", "worker": "val"}}`) -- See [sample-v1alpha2](sample-v1alpha2.yaml) to understand the new structure; making this change requires having a [conversion webhook](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/#write-a-conversion-webhook-server), I'm reaching out to see if hosting that is possible with kopf. If it is not possible I will use the go template provided in the link.
 
 ### v0.2.0
 * [ ] allow other manifests (deployments, ingresses, services) to be set in django manifest

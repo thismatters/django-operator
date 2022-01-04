@@ -1,0 +1,110 @@
+apiVersion: thismatters.github/v1alpha2
+kind: Django
+metadata:
+  name: example-project
+  namespace: example
+spec:
+  host: app.example.com
+  version: "2021.12.1"
+  clusterIssuer: letsencrypt
+  redis:
+    enabled: true
+    serviceName: redis
+    spec:
+      port: 6379
+      image: redis:4.0
+      resources:
+        requests:
+          memory: "10Mi"
+  manageCommands:
+    period: 6
+    iterations: 10
+    alwaysRun: True
+    commands:
+    - ["migrate"]
+    - ["create_groups"]
+    - ["ensure_contract_pricing"]
+    - ["initialize_payment_webhooks"]
+    - ["loaddata", "example_project/fixtures/us_states.json"]
+  common:
+    image: registry.example.com/repo/project
+    env:
+    - name: COMMON_ENV_VAR
+      value: "common value"
+    envFromConfigMapRefs:
+    - env
+    envFromSecretRefs:
+    - database
+    imagePullSecrets:
+    - name: gitlab-registry-read
+    volumes:
+    - name: google-drive-client-secret
+      secret:
+        secretName: google-drive
+    volumeMounts:
+    - name: google-drive-client-secret
+      mountPath: "/app/src/secret/"
+      readOnly: true
+  deployments:
+    app:
+      env:
+      - name: SPECIFIC_ENV_VAR
+        value: "specific value"
+      command:
+      - "gunicorn"
+      args:
+      - "example_project.wsgi:application"
+      - "-b"
+      - "0.0.0.0:8000"
+      resources: 
+        requests:
+          memory: "100Mi"
+          cpu: "300m"
+      ports:
+      - containerPort: 8000
+      autoscaler:
+        cpuUtilizationThreshold: 70
+        replicas:
+          minimum: 1
+      probeSpec:
+        httpGet:
+          scheme: HTTP
+          path: /privacy/
+          port: 8000
+          httpHeaders:
+          - name: Host
+            value: app.exampleproject.coop
+        initialDelaySeconds: 45
+        periodSeconds: 11
+        timeoutSeconds: 2
+        failureThreshold: 3
+    worker:
+      command:
+      - "celery"
+      args:
+      - "--app=example_project"
+      - "worker"
+      - "--loglevel=INFO"
+      resources: 
+        requests:
+          memory: "200Mi"
+          cpu: "300m"
+      autoscaler:
+        replicas:
+          minimum: 1
+          maximum: 2
+    beat:
+      command:
+      - "celery"
+      args:
+      - "--app=example_project"
+      - "beat"
+      - "--loglevel=INFO"
+      - "--scheduler"
+      - "django_celery_beat.schedulers:DatabaseScheduler"
+      - "--pidfile='/tmp/celerybeat.pid'"
+      resources: 
+        requests:
+          memory: "100Mi"
+
+
