@@ -71,7 +71,9 @@ class BaseService:
                 namespace=namespace,
                 name=name,
             )
-        except ApiException:
+        except (ApiException, ) as e:
+            self.logger.error(f"removing finalizers failed for {name}")
+            self.logger.error(f"{e}")
             pass
 
     def read_status(self, **kwargs):

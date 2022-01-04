@@ -234,4 +234,5 @@ class MigrationPipeline(BasePipeline, DjangoKindMixin):
     def unprotect_all(self):
         for kind, data in self.status.get("created").items():
             for purpose, name in data.items():
+                self.logger.debug(f"Unprotect {purpose} {name}")
                 self.django.unprotect_resource(kind=kind, name=name)
