@@ -59,12 +59,16 @@ class BaseService:
             except ApiException:
                 # object doesn't exist
                 return
-        _finalizers = getattr(obj.metadata, "finalizers")
+        _finalizers = obj.metadata.finalizers
+        self.logger.debug(f"finalizers from obj {_finalizers}")
         if _finalizers is None:
             return
         finalizers = list(_finalizers)
+        self.logger.debug(f"finalizers list {finalizers}")
         if "django.thismatters.github/protector" in finalizers:
             finalizers.remove("django.thismatters.github/protector")
+            self.logger.debug(
+                f"removed finalizer from list. these items remain {finalizers}")
         try:
             self._patch(
                 body={"metadata": {"finalizers": finalizers}},
