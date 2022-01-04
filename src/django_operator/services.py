@@ -59,7 +59,7 @@ class BaseService:
             except ApiException:
                 # object doesn't exist
                 return
-        finalizers = list(obj.metadata.finalizers)
+        finalizers = list(getattr(obj.metadata, "finalizers", []))
         if "django.thismatters.github/protector" in finalizers:
             finalizers.remove("django.thismatters.github/protect")
         try:
