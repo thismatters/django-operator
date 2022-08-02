@@ -157,6 +157,14 @@ class CompleteMigrationStep(BasePipelineStep, DjangoKindMixin):
                 self.django.clean_blue(
                     purpose="app", blue=superget(context, f"blue_{purpose}")
                 )
+            # delete HPAs
+            for purpose in ("app", "worker"):
+                _hpa = superget(created, f"horizontalpodautoscaler.{purpose}")
+                if _hpa is not None:
+                    self.django.unprotect_resource(
+                        kind="horizontalpodautoscaler",
+                        name=_hpa
+                    )
             self.logger.info("All that was green is now blue")
         else:
             # remove any created green resources (that aren't part of the blue deployment)
@@ -232,6 +240,9 @@ class MigrationPipeline(BasePipeline, DjangoKindMixin):
             raise MonitorException()
 
     def unprotect_all(self):
+        if self.status.get("created") is None:
+            self.logger.debug(f"No resources created?")
+            return
         for kind, data in self.status.get("created").items():
             for purpose, name in data.items():
                 self.logger.debug(f"Unprotect {purpose} {name}")
